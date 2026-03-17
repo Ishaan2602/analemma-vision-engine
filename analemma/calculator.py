@@ -139,26 +139,31 @@ class AnalemmaCalculator:
         # Declination from coordinates
         declination = sun.dec.degree
         
-        # Calculate equation of time
-        # EoT = Apparent Solar Time - Mean Solar Time
-        # Approximate from right ascension
-        ra_hours = sun.ra.hour
-        mean_solar_hours = (dt.timetuple().tm_yday - 1) * 24 / 365.25
+        # Calculate equation of time using Astropy
+        # EoT = Apparent Solar Time - Mean Solar Time (positive = sundial ahead)
+        # EoT = (L0 - RA_sun) * 4  min/deg  (NOAA convention)
+        # L0 is the mean sun's ecliptic longitude; RA_sun is the true sun's
+        # right ascension.  The difference captures both the eccentricity
+        # effect (true longitude != L0) and the obliquity effect (ecliptic
+        # longitude != equatorial RA).
         
-        # Convert RA difference to time difference
-        # Note: This is a simplified calculation
-        # More accurate: use actual solar noon calculations
-        eot_hours = (ra_hours - mean_solar_hours) % 24
-        if eot_hours > 12:
+        ra_sun_hours = sun.ra.hour  # Sun's actual right ascension in hours
+        
+        # Mean sun longitude advances uniformly from J2000.0 epoch.
+        # L0 = 280.46646 + 0.9856474 * n  (degrees)
+        jd = time.jd
+        n = jd - 2451545.0  # Days since J2000.0
+        L0 = (280.46646 + 0.9856474 * n) % 360
+        ra_mean_hours = L0 / 15.0
+        
+        # EoT = L0 - RA_sun, normalized to [-12, +12] hours
+        eot_hours = ra_mean_hours - ra_sun_hours
+        while eot_hours > 12:
             eot_hours -= 24
-        eot_minutes = eot_hours * 4  # Convert hours of RA to minutes of time
+        while eot_hours < -12:
+            eot_hours += 24
         
-        # More accurate EoT using GAST
-        # This is a placeholder - full implementation would use:
-        # EoT = GHA_mean_sun - GHA_apparent_sun
-        # For now, use simpler approximation
-        day_of_year = dt.timetuple().tm_yday
-        eot_minutes = self.calculate_equation_of_time_approximate(day_of_year)
+        eot_minutes = eot_hours * 60.0
         
         return declination, eot_minutes
     

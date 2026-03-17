@@ -38,3 +38,8 @@ PROJECT_BRIEF.md
 # OS
 .DS_Store
 Thumbs.db
+
+.github/
+.github/*
+
+nul

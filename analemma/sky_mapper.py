@@ -9,6 +9,14 @@ import numpy as np
 from typing import Dict, List, Tuple
 from datetime import datetime, timezone
 
+# Timezone auto-detection via IANA database
+try:
+    from timezonefinder import TimezoneFinder
+    from zoneinfo import ZoneInfo
+    TIMEZONE_AUTO_AVAILABLE = True
+except ImportError:
+    TIMEZONE_AUTO_AVAILABLE = False
+
 
 class SkyMapper:
     """
@@ -25,24 +33,74 @@ class SkyMapper:
         Observer's longitude in degrees (positive = East, negative = West)
     timezone_offset : float, optional
         Timezone offset from UTC in hours (e.g., -6 for CST, -5 for EST)
-        If None, will be calculated from longitude
+        If None, will be auto-detected from (lat, lon) using IANA timezone
+        database via timezonefinder, or fall back to round(longitude/15).
+    reference_datetime : datetime, optional
+        Reference datetime used for DST-aware timezone detection.
+        If None, uses the first observation time encountered.
     """
     
     def __init__(self, latitude: float, longitude: float, 
-                 timezone_offset: float = None):
+                 timezone_offset: float = None,
+                 reference_datetime: datetime = None):
         """Initialize sky mapper with observer location."""
         self.latitude = latitude
         self.longitude = longitude
+        self._reference_datetime = reference_datetime
+        self._iana_timezone_name = None
         
-        # Calculate timezone offset from longitude if not provided
-        # Standard time zones are roughly 15° apart (360°/24h = 15°/h)
-        if timezone_offset is None:
-            self.timezone_offset = round(longitude / 15)
-        else:
+        if timezone_offset is not None:
             self.timezone_offset = timezone_offset
+        elif TIMEZONE_AUTO_AVAILABLE:
+            self._iana_timezone_name = self._lookup_iana_timezone(latitude, longitude)
+            if self._iana_timezone_name and reference_datetime:
+                self.timezone_offset = self._get_utc_offset(
+                    self._iana_timezone_name, reference_datetime
+                )
+            elif self._iana_timezone_name:
+                # No reference datetime yet; use a naive default (Jan 1 noon)
+                # Will be refined when map_single_point is first called
+                import datetime as dt_mod
+                fallback_dt = dt_mod.datetime(2025, 1, 1, 12, 0, 0)
+                self.timezone_offset = self._get_utc_offset(
+                    self._iana_timezone_name, fallback_dt
+                )
+            else:
+                # timezonefinder returned None (ocean, etc.) - fall back
+                self.timezone_offset = round(longitude / 15)
+                import warnings
+                warnings.warn(
+                    f"Could not determine IANA timezone for ({latitude:.2f}, {longitude:.2f}). "
+                    f"Falling back to UTC{self.timezone_offset:+d} from longitude.",
+                    stacklevel=2
+                )
+        else:
+            self.timezone_offset = round(longitude / 15)
+            import warnings
+            warnings.warn(
+                f"timezonefinder not installed. Timezone auto-detected as "
+                f"UTC{self.timezone_offset:+d} from longitude {longitude:.1f}. "
+                f"Install timezonefinder for accurate automatic timezone detection.",
+                stacklevel=2
+            )
         
         # Convert latitude to radians for calculations
         self.latitude_rad = np.radians(latitude)
+    
+    @staticmethod
+    def _lookup_iana_timezone(latitude: float, longitude: float):
+        """Look up IANA timezone name from coordinates."""
+        tf = TimezoneFinder()
+        return tf.timezone_at(lat=latitude, lng=longitude)
+    
+    @staticmethod
+    def _get_utc_offset(iana_name: str, dt: datetime) -> float:
+        """Get UTC offset in hours for a given IANA timezone and datetime."""
+        tz = ZoneInfo(iana_name)
+        # Make the datetime timezone-aware
+        aware_dt = dt.replace(tzinfo=tz)
+        offset = aware_dt.utcoffset()
+        return offset.total_seconds() / 3600.0
     
     def equation_of_time_to_hour_angle(self, eot_minutes: float, 
                                        hour: int, minute: int,
@@ -318,6 +376,9 @@ class SkyMapper:
         return (-h_deg, h_deg)
     
     def __repr__(self) -> str:
-        return (f"SkyMapper(latitude={self.latitude}°, "
-                f"longitude={self.longitude}°, "
-                f"timezone_offset={self.timezone_offset}h)")
+        tz_info = f"timezone_offset={self.timezone_offset}h"
+        if self._iana_timezone_name:
+            tz_info += f" ({self._iana_timezone_name})"
+        return (f"SkyMapper(latitude={self.latitude}\u00b0, "
+                f"longitude={self.longitude}\u00b0, "
+                f"{tz_info})")

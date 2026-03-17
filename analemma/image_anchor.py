@@ -50,7 +50,9 @@ class ImageAnchorer:
                  latitude: float,
                  longitude: float,
                  sun_pixel: Optional[Tuple[int, int]] = None,
-                 auto_detect_sun: bool = True):
+                 auto_detect_sun: bool = True,
+                 timezone_offset: float = None,
+                 mode: str = 'approximate'):
         """Initialize the image anchorer."""
         # Load image and apply EXIF orientation
         self.image = Image.open(image_path)
@@ -79,9 +81,11 @@ class ImageAnchorer:
             self.sun_pixel = sun_pixel
         
         # Initialize calculator and mapper
-        self.calculator = AnalemmaCalculator(mode='approximate', 
+        self.calculator = AnalemmaCalculator(mode=mode, 
                                             year=anchor_datetime.year)
-        self.sky_mapper = SkyMapper(latitude, longitude)
+        self.sky_mapper = SkyMapper(latitude, longitude, 
+                                   timezone_offset=timezone_offset,
+                                   reference_datetime=anchor_datetime)
         
         # Calculate anchor point sky coordinates
         self.anchor_data = self._calculate_anchor_position()
@@ -91,7 +95,15 @@ class ImageAnchorer:
         self.pixels_per_degree_alt = None
     
     def _detect_sun_position(self) -> Tuple[int, int]:
-        """Detect the sun's position using advanced image processing."""
+        """Detect the sun's position in the image.
+        
+        Uses progressive thresholding with connected-component analysis.
+        Starts at a strict threshold and lowers it until a blob of
+        meaningful size is found. For large saturated blobs, refines
+        the center by finding the "whitest" region (highest minimum
+        RGB channel) within the blob -- the sun disk is white while
+        the surrounding glow tends to be colored.
+        """
         import numpy as np
         try:
             from scipy import ndimage
@@ -99,55 +111,89 @@ class ImageAnchorer:
         except ImportError:
             has_scipy = False
         
-        # Convert to numpy array
         img_array = np.array(self.image)
+        is_color = len(img_array.shape) == 3
         
-        # If RGB, convert to grayscale (use max of RGB channels for brightest regions)
-        if len(img_array.shape) == 3:
-            gray = np.max(img_array, axis=2)
+        if is_color:
+            gray = np.max(img_array, axis=2).astype(np.float64)
         else:
-            gray = img_array
+            gray = img_array.astype(np.float64)
         
-        # Strategy 1: Find the absolute brightest pixel cluster
         max_val = gray.max()
+        min_blob_size = 20
         
-        # Create mask of only the VERY brightest pixels (99.9% threshold)
-        threshold = max_val * 0.999
-        bright_mask = gray >= threshold
-        
-        # Use scipy for better blob detection if available
         if has_scipy:
-            # Label connected components
-            labeled, num_features = ndimage.label(bright_mask)
+            # Progressive threshold: start strict, lower until a real blob appears
+            thresholds = [0.999, 0.995, 0.99, 0.985, 0.98, 0.975, 0.97, 0.965, 0.96]
+            blob_mask = None
             
-            if num_features > 0:
-                # Find the largest blob (most likely the sun core)
+            for thresh in thresholds:
+                bright_mask = gray >= max_val * thresh
+                labeled, num_features = ndimage.label(bright_mask)
+                
+                if num_features == 0:
+                    continue
+                
                 sizes = ndimage.sum(bright_mask, labeled, range(num_features + 1))
-                largest_blob = sizes[1:].argmax() + 1
+                blob_sizes = sizes[1:]
+                largest_size = blob_sizes.max()
                 
-                # Get center of mass of the largest blob
-                blob_mask = labeled == largest_blob
-                y_coords, x_coords = np.where(blob_mask)
-                
-                # Use center of mass for more accuracy
-                sun_y, sun_x = ndimage.center_of_mass(gray, labels=labeled, index=largest_blob)
-                sun_x = int(sun_x)
-                sun_y = int(sun_y)
-            else:
-                # Fallback to brightest pixel
+                if largest_size >= min_blob_size:
+                    largest_label = blob_sizes.argmax() + 1
+                    blob_mask = labeled == largest_label
+                    break
+            
+            if blob_mask is None:
                 max_loc = np.unravel_index(gray.argmax(), gray.shape)
-                sun_y, sun_x = max_loc
+                return (int(max_loc[1]), int(max_loc[0]))
+            
+            blob_size = blob_mask.sum()
+            
+            # For large blobs, find the center of the brightest concentration
+            # using a Gaussian-blurred luminance peak within the blob region.
+            # Sigma scales with blob size: small blobs need tight focus,
+            # large blobs need more smoothing to avoid local peaks.
+            if blob_size > 100:
+                from scipy.ndimage import gaussian_filter
+                
+                # Use sum of all channels for luminance (more info than max)
+                if is_color:
+                    lum = img_array.astype(np.float64).sum(axis=2)
+                else:
+                    lum = gray
+                
+                # Crop around the blob bounding box with margin
+                cy, cx = np.where(blob_mask)
+                margin = 20
+                y_min = max(0, cy.min() - margin)
+                y_max = min(img_array.shape[0], cy.max() + margin + 1)
+                x_min = max(0, cx.min() - margin)
+                x_max = min(img_array.shape[1], cx.max() + margin + 1)
+                
+                lum_crop = lum[y_min:y_max, x_min:x_max]
+                
+                # Adaptive sigma: ~12% of the blob's characteristic radius
+                blob_radius = np.sqrt(blob_size / np.pi)
+                sigma = max(1, min(blob_radius * 0.12, 5))
+                
+                blurred = gaussian_filter(lum_crop, sigma=sigma)
+                peak = np.unravel_index(blurred.argmax(), blurred.shape)
+                sun_x = int(peak[1] + x_min)
+                sun_y = int(peak[0] + y_min)
+            else:
+                # Small blob or grayscale: weighted centroid
+                cy, cx = np.where(blob_mask)
+                weights = gray[cy, cx]
+                sun_x = int(round(np.average(cx, weights=weights)))
+                sun_y = int(round(np.average(cy, weights=weights)))
         else:
-            # Without scipy, use simpler approach: brightest pixel location
-            # Apply small Gaussian-like smoothing manually to reduce single-pixel noise
+            bright_mask = gray >= max_val * 0.999
             if bright_mask.sum() > 10:
                 y_coords, x_coords = np.where(bright_mask)
-                # Weight by brightness
                 weights = gray[y_coords, x_coords]
                 sun_x = int(np.average(x_coords, weights=weights))
                 sun_y = int(np.average(y_coords, weights=weights))
             else:
-                # Just use the single brightest pixel
                 max_loc = np.unravel_index(gray.argmax(), gray.shape)
                 sun_y, sun_x = max_loc
         
@@ -225,8 +271,15 @@ class ImageAnchorer:
         delta_az = azimuth - anchor_az
         delta_alt = altitude - anchor_alt
         
+        # Apply cos(altitude) correction for azimuth.
+        # Lines of constant azimuth converge toward the zenith, just like
+        # longitude lines converge at the poles. 1 degree of azimuth subtends
+        # fewer pixels at higher altitudes. We use the mean altitude of the
+        # anchor and target as a midpoint approximation.
+        mean_alt_rad = np.radians((anchor_alt + altitude) / 2.0)
+        
         # Convert to pixel offset (y is inverted - up is negative)
-        delta_x = delta_az * self.pixels_per_degree_az
+        delta_x = delta_az * np.cos(mean_alt_rad) * self.pixels_per_degree_az
         delta_y = -delta_alt * self.pixels_per_degree_alt
         
         # Apply to anchor pixel
@@ -260,18 +313,14 @@ class ImageAnchorer:
         sky_data = self.sky_mapper.map_to_horizon(year_data)
         
         # Convert to pixel coordinates and filter out points below horizon
-        visible_points = []
+        all_points = []
         for point in sky_data:
-            # Skip if below horizon
-            if point['altitude'] < 0:
-                continue
-            
             x, y = self.sky_to_pixel(point['altitude'], point['azimuth'])
             point['pixel_x'] = x
             point['pixel_y'] = y
-            visible_points.append(point)
+            all_points.append(point)
         
-        return visible_points
+        return all_points
     
     def overlay_analemma(self,
                         output_path: str,
@@ -319,22 +368,36 @@ class ImageAnchorer:
         except:
             font = ImageFont.load_default()
         
-        # Draw connecting line (only for visible points within image bounds)
-        line_points = [(p['pixel_x'], p['pixel_y']) for p in analemma_points
-                      if 0 <= p['pixel_x'] < self.image_width 
-                      and 0 <= p['pixel_y'] < self.image_height
-                      and p['altitude'] >= 0]
+        def _in_bounds(x, y):
+            return 0 <= x < self.image_width and 0 <= y < self.image_height
         
-        if len(line_points) > 1:
-            draw.line(line_points, fill=line_color, width=line_width)
+        # Draw connecting line segments between consecutive in-bounds points.
+        # Break the line at gaps where points fall outside the image so we
+        # don't get spurious lines connecting distant parts of the analemma.
+        current_segment = []
+        for p in analemma_points:
+            px, py = p['pixel_x'], p['pixel_y']
+            if _in_bounds(px, py):
+                current_segment.append((px, py))
+            else:
+                # End current segment
+                if len(current_segment) > 1:
+                    draw.line(current_segment, fill=line_color, width=line_width)
+                current_segment = []
+        # Draw final segment
+        if len(current_segment) > 1:
+            draw.line(current_segment, fill=line_color, width=line_width)
         
         # Draw dots for each position
+        points_in_image = 0
         for i, point in enumerate(analemma_points):
             x, y = point['pixel_x'], point['pixel_y']
             
             # Skip if outside image bounds
-            if not (0 <= x < self.image_width and 0 <= y < self.image_height):
+            if not _in_bounds(x, y):
                 continue
+            
+            points_in_image += 1
             
             # Draw dot
             bbox = [x - dot_size//2, y - dot_size//2,
@@ -361,7 +424,10 @@ class ImageAnchorer:
                  fill=(255, 255, 255), font=font)
         
         # Add metadata text
-        metadata_text = (f"Location: {self.latitude:.2f}°, {self.longitude:.2f}°\n"
+        tz_info = ""
+        if self.sky_mapper._iana_timezone_name:
+            tz_info = f" | TZ: {self.sky_mapper._iana_timezone_name} (UTC{self.sky_mapper.timezone_offset:+.1f})"
+        metadata_text = (f"Location: {self.latitude:.2f}\u00b0, {self.longitude:.2f}\u00b0{tz_info}\n"
                         f"Analemma for {self.anchor_datetime.strftime('%H:%M')} "
                         f"throughout {self.anchor_datetime.year}")
         draw.text((10, 10), metadata_text, fill=(255, 255, 255), font=font)
@@ -370,14 +436,13 @@ class ImageAnchorer:
         output_image.save(output_path)
         
         # Return metadata
-        total_points = 365
-        points_drawn = len(analemma_points)
-        points_filtered = total_points - points_drawn
+        total_points = len(analemma_points)
+        points_outside = total_points - points_in_image
         
         return {
             'image': output_image,
-            'points_drawn': points_drawn,
-            'points_filtered': points_filtered,
+            'points_drawn': points_in_image,
+            'points_filtered': points_outside,
             'sun_pixel': self.sun_pixel,
             'sun_altitude': self.anchor_data['altitude'],
             'sun_azimuth': self.anchor_data['azimuth']

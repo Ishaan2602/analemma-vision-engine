@@ -1,8 +1,65 @@
 """Utility to parse metadata.txt files for automatic processing."""
 
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
+
+
+def parse_coordinate(value: str) -> float:
+    """
+    Parse a coordinate string in various formats to decimal degrees.
+    
+    Supported formats:
+        40.1              plain decimal
+        -88.2             negative decimal
+        2.2945E           decimal with direction letter
+        40.1N             decimal with direction letter
+        8 48 26.98 E      space-separated DMS with direction
+        8d 48' 26.98" E   DMS with symbols
+    
+    Direction letters: N/S for latitude, E/W for longitude.
+    S and W produce negative values.
+    """
+    value = value.strip()
+    
+    # Extract trailing direction letter (N/S/E/W)
+    direction = None
+    match = re.match(r'^(.*?)\s*([NSEWnsew])$', value)
+    if match:
+        value = match.group(1).strip()
+        direction = match.group(2).upper()
+    
+    # Try plain decimal first (possibly with sign)
+    # Remove degree symbol if it's just "2.2945°" (decimal with degree sign)
+    cleaned = re.sub(r'[°]$', '', value).strip()
+    try:
+        result = float(cleaned)
+        if direction in ('S', 'W'):
+            result = -abs(result)
+        return result
+    except ValueError:
+        pass
+    
+    # DMS: split on degree/minute/second symbols or whitespace
+    # Handles: 8° 48' 26.98", 8d 48m 26.98s, 8 48 26.98
+    parts = re.split(r'''[°d\s]+|[′'m]+|[″"s]+''', value)
+    parts = [p for p in parts if p]
+    
+    if len(parts) >= 2:
+        degrees = float(parts[0])
+        minutes = float(parts[1]) if len(parts) > 1 else 0.0
+        seconds = float(parts[2]) if len(parts) > 2 else 0.0
+        
+        result = abs(degrees) + minutes / 60.0 + seconds / 3600.0
+        if degrees < 0:
+            result = -result
+        if direction in ('S', 'W'):
+            result = -abs(result)
+        return result
+    
+    raise ValueError(f"Cannot parse coordinate: '{value}'")
+
 
 
 def parse_metadata(metadata_path: str) -> Dict[str, Any]:
@@ -45,9 +102,15 @@ def parse_metadata(metadata_path: str) -> Dict[str, Any]:
                 key = key.strip().lower()
                 value = value.strip()
                 
+                # Skip empty values
+                if not value:
+                    continue
+                
                 # Type conversion
-                if key in ['latitude', 'longitude', 'altitude_m', 
-                          'focal_length_mm', 'sensor_width_mm', 'sensor_height_mm']:
+                if key in ['latitude', 'longitude']:
+                    metadata[key] = parse_coordinate(value)
+                elif key in ['altitude_m', 'focal_length_mm', 'sensor_width_mm',
+                            'sensor_height_mm', 'timezone_offset']:
                     metadata[key] = float(value)
                 elif key == 'datetime':
                     metadata[key] = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
