@@ -99,10 +99,8 @@ class ImageAnchorer:
         
         Uses progressive thresholding with connected-component analysis.
         Starts at a strict threshold and lowers it until a blob of
-        meaningful size is found. For large saturated blobs, refines
-        the center by finding the "whitest" region (highest minimum
-        RGB channel) within the blob -- the sun disk is white while
-        the surrounding glow tends to be colored.
+        meaningful size is found. Uses brightness-weighted centroid
+        to locate the sun center within the blob.
         """
         import numpy as np
         try:
@@ -147,45 +145,11 @@ class ImageAnchorer:
                 max_loc = np.unravel_index(gray.argmax(), gray.shape)
                 return (int(max_loc[1]), int(max_loc[0]))
             
-            blob_size = blob_mask.sum()
-            
-            # For large blobs, find the center of the brightest concentration
-            # using a Gaussian-blurred luminance peak within the blob region.
-            # Sigma scales with blob size: small blobs need tight focus,
-            # large blobs need more smoothing to avoid local peaks.
-            if blob_size > 100:
-                from scipy.ndimage import gaussian_filter
-                
-                # Use sum of all channels for luminance (more info than max)
-                if is_color:
-                    lum = img_array.astype(np.float64).sum(axis=2)
-                else:
-                    lum = gray
-                
-                # Crop around the blob bounding box with margin
-                cy, cx = np.where(blob_mask)
-                margin = 20
-                y_min = max(0, cy.min() - margin)
-                y_max = min(img_array.shape[0], cy.max() + margin + 1)
-                x_min = max(0, cx.min() - margin)
-                x_max = min(img_array.shape[1], cx.max() + margin + 1)
-                
-                lum_crop = lum[y_min:y_max, x_min:x_max]
-                
-                # Adaptive sigma: ~12% of the blob's characteristic radius
-                blob_radius = np.sqrt(blob_size / np.pi)
-                sigma = max(1, min(blob_radius * 0.12, 5))
-                
-                blurred = gaussian_filter(lum_crop, sigma=sigma)
-                peak = np.unravel_index(blurred.argmax(), blurred.shape)
-                sun_x = int(peak[1] + x_min)
-                sun_y = int(peak[0] + y_min)
-            else:
-                # Small blob or grayscale: weighted centroid
-                cy, cx = np.where(blob_mask)
-                weights = gray[cy, cx]
-                sun_x = int(round(np.average(cx, weights=weights)))
-                sun_y = int(round(np.average(cy, weights=weights)))
+            # Brightness-weighted centroid of the blob
+            cy, cx = np.where(blob_mask)
+            weights = gray[cy, cx]
+            sun_x = int(round(np.average(cx, weights=weights)))
+            sun_y = int(round(np.average(cy, weights=weights)))
         else:
             bright_mask = gray >= max_val * 0.999
             if bright_mask.sum() > 10:

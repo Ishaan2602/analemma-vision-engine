@@ -182,15 +182,14 @@ This layer composes all three other layers internally:
 
 ### 4.1 Sun Detection (`_detect_sun_position()`)
 
-The detection pipeline uses progressive thresholding with adaptive Gaussian refinement:
+The detection pipeline uses progressive thresholding with brightness-weighted centroid refinement:
 
 1. **EXIF correction:** `PIL.ImageOps.exif_transpose()` handles camera orientation tags before any pixel processing
 2. **Grayscale conversion:** Takes `max(R, G, B)` per pixel (not luminance-weighted average), since the sun saturates all channels equally
 3. **Progressive thresholding:** Starting at 99.9% of the max brightness, the threshold is progressively lowered through [99.5, 99.0, 98.5, ..., 96.0%] until a connected blob with >= 20 pixels is found. This skips isolated glare artifacts (single bright pixels from lens flare) that pass high thresholds but are too small to be the sun.
 4. **Component labeling:** `scipy.ndimage.label()` finds connected components in the binary mask; the largest blob is selected
-5. **Center refinement (large blobs, >100px):** For heavily overexposed suns, the blob is uniformly saturated and centroid-based methods are unreliable. Instead, a Gaussian blur is applied to the sum-of-channels luminance within the blob's bounding box, and the peak of the blurred image is used. Sigma scales adaptively: `sigma = max(1, min(blob_radius * 0.12, 5))`, where `blob_radius = sqrt(blob_size / pi)`. The cap at 5 prevents over-smoothing on massive blobs (e.g. hongkong at 163k pixels, radius ~228).
-6. **Center refinement (small blobs, <=100px):** Brightness-weighted centroid via `scipy.ndimage.center_of_mass()`
-7. **Fallback:** If no blob is found at any threshold, the single brightest pixel is used
+5. **Brightness-weighted centroid:** The sun center is computed as the brightness-weighted average position of all pixels in the blob, using `max(R,G,B)` as weights
+6. **Fallback:** If no blob is found at any threshold, the single brightest pixel is used
 
 Returns `(x, y)` pixel coordinates of the detected sun center.
 
@@ -299,7 +298,7 @@ input_images/<name>/metadata.txt
 | Pillow (PIL) | Image loading, EXIF handling, overlay drawing | Yes |
 | Pandas | Data manipulation (optional usage) | Yes |
 | Astropy | JPL DE440/441 ephemeris for high-precision mode | Yes |
-| SciPy | Connected-component labeling, Gaussian filtering for sun detection | Yes |
+| SciPy | Connected-component labeling for sun detection | Yes |
 | Timezonefinder | IANA timezone lookup from GPS coordinates | Yes |
 | Plotly | Interactive hover-enabled scatter plots | Yes |
 
@@ -364,7 +363,7 @@ Focal length alone doesn't determine field of view -- it depends on sensor size.
 
 ### 8.5 Sun Detection Robustness
 
-Simple brightest-pixel approaches fail when the sky has glare artifacts, reflections, or multiple bright regions. The progressive thresholding approach (Section 4.1) handles this by requiring a minimum blob size of 20 pixels, which filters out isolated hot pixels. For large overexposed blobs where the entire region is uniformly saturated (e.g. cold_canada's 411-pixel blob with RGB values 244-246 across all channels), there's no meaningful gradient to locate a "true" center. The Gaussian blur peak is the best available estimate in this case. The adaptive sigma scaling (0.12 * blob_radius, capped at 5) was tuned across 11 test images spanning blob sizes from 411px to 163k px.
+Simple brightest-pixel approaches fail when the sky has glare artifacts, reflections, or multiple bright regions. The progressive thresholding approach (Section 4.1) handles this by requiring a minimum blob size of 20 pixels, which filters out isolated hot pixels. For uniformly saturated blobs (e.g. cold_canada's 411-pixel blob with RGB values 244-246 across all channels), the weighted centroid converges to the geometric center of the bright region, which is a reasonable estimate of the sun's position. This simple approach proved more robust across 11 test images than more complex methods (Gaussian blur peak, erosion, min-channel weighting), which tended to shift detection away from the visible sun center on large overexposed blobs.
 
 ### 8.6 EXIF Orientation
 

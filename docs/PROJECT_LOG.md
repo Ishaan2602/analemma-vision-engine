@@ -6,6 +6,20 @@ Most recent work at the top.
 
 ## Session 1 -- started 2026-03-15
 
+### Prompt 6 (2026-03-17) -- CV simplification
+
+Reverted the sun detection algorithm from Gaussian-blur-based center finding back to simple brightness-weighted centroid for all blob sizes. The Gaussian blur approach (Rounds 10-13 in CV_debugging.md) was tuned for three difficult images (cold_canada, russia_meadow, brofjorden) but shifted detection off-center for mainstream images with large overexposed blobs -- hongkong, raghav, raghav2, and others.
+
+The simplified algorithm keeps progressive thresholding (0.999 -> 0.96, min 20px blob) and uses weighted centroid for all blobs regardless of size. No large-blob vs small-blob branching, no Gaussian blur, no adaptive sigma. This proved more robust across all 11 test images.
+
+Files changed:
+- Modified: `analemma/image_anchor.py` (removed Gaussian blur path, unified to weighted centroid)
+- Modified: `docs/TECHNICAL_DESCRIPTION.md`, `docs/THEORY_AND_LIMITATIONS.md` (updated sun detection descriptions)
+- Modified: `docs/PROJECT_LOG.md`
+- Regenerated: all 11 output overlay sets
+
+---
+
 ### Prompt 5 (2026-03-17) -- Final cleanup
 
 Reran the engine for all 11 images to regenerate output overlays, sky charts, and composites. Cleaned every output folder down to exactly 3 files each. Removed `output/quickstart_output/`, `output/visualizations/`, and `output/README.md`.

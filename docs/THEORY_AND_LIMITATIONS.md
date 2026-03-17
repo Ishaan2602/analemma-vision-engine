@@ -76,9 +76,8 @@ The CV pipeline uses a multi-stage approach to find the sun:
 2. Grayscale conversion using `max(R, G, B)` per pixel (preserves saturation better than luminance-weighted average)
 3. Progressive thresholding: starts at 99.9% of max brightness, lowers through [99.5, 99, 98.5, ..., 96%] until a blob with >= 20 pixels is found. This skips isolated glare artifacts that are bright but tiny.
 4. Connected component labeling (`scipy.ndimage.label`) selects the largest blob
-5. For large blobs (>100px): computes a Gaussian-blurred luminance peak within the blob's bounding box. Sigma scales with blob size: `sigma = max(1, min(blob_radius * 0.12, 5))`. The cap at 5 prevents over-smoothing on massive overexposed regions (>100k pixels).
-6. For small blobs (<=100px): brightness-weighted centroid via `scipy.ndimage.center_of_mass`
-7. Fallback: brightest pixel if no blob is found
+5. Brightness-weighted centroid of the blob pixels, using `max(R,G,B)` as weights
+6. Fallback: brightest pixel if no blob is found
 
 ### 3.2 Requirements and Failure Modes
 
