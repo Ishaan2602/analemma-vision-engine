@@ -12,7 +12,7 @@ Given a sky photo with basic metadata (GPS coordinates, timestamp, camera specs)
 
 The analemma shape comes from Earth's 23.45-degree axial tilt combined with its elliptical orbit. The engine handles the orbital mechanics, coordinate transforms, timezone detection, and camera projection math.
 
-![Example Output](image.png)
+![Example Output](output/hongkong_output/hongkong_overlay.png)
 
 ## Installation
 
@@ -51,10 +51,10 @@ plotter.show()
 
 Three-layer pipeline, plus an image overlay layer that composes them:
 
-- **AnalemmaCalculator** -- Solar position math. Two modes: approximate (analytical formulas) and high-precision (Astropy + JPL DE440 ephemeris).
-- **SkyMapper** -- Transforms celestial coordinates to horizon coordinates (altitude/azimuth) for a given observer location. Auto-detects timezone via IANA database with DST support.
-- **AnalemmaPlotter** -- Matplotlib visualizations: sky charts, figure-8 diagrams, side-by-side comparisons.
-- **ImageAnchorer** -- CV pipeline for sun detection, camera projection, and overlay rendering.
+1. `AnalemmaCalculator` handles the solar position math. Two modes: approximate (analytical formulas) and high-precision (Astropy + JPL DE440 ephemeris).
+2. `SkyMapper` transforms celestial coordinates to horizon coordinates (altitude/azimuth) for a given observer location. Auto-detects timezone via IANA database with DST support.
+3. `AnalemmaPlotter` produces Matplotlib visualizations: sky charts, figure-8 diagrams, side-by-side comparisons.
+4. `ImageAnchorer` is the CV layer -- sun detection, camera projection, and overlay rendering onto the original photo.
 
 ## Sun detection
 

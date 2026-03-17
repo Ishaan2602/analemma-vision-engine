@@ -13,21 +13,17 @@ build/
 venv/
 ENV/
 
-# Output files
-output/
+# Private input images (personal photos)
+input_images/raghav/
+input_images/raghav2/
+input_images/raghav6/
+input_images/robert_hawaii/
 
-# Input images
-input_images/
-
-# Root-level example images are tracked (don't ignore)
-# Only ignore images inside directories
-**/*.png
-**/*.jpg
-**/*.jpeg
-!image.png
-
-# Documentation
-PROJECT_BRIEF.md
+# Private output images (corresponding to private inputs)
+output/raghav_output/
+output/raghav2_output/
+output/raghav6_output/
+output/robert_hawaii_output/
 
 # IDE
 .vscode/
@@ -38,8 +34,5 @@ PROJECT_BRIEF.md
 # OS
 .DS_Store
 Thumbs.db
-
-.github/
-.github/*
 
 nul

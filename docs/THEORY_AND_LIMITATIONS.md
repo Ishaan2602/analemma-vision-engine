@@ -26,7 +26,7 @@ $$\Delta x_{\text{px}} = \Delta\text{az} \times \cos(\bar{a}) \times \text{ppd\_
 
 where $\bar{a}$ is the mean altitude of the anchor and target point. This correction is essential: without it, an analemma near the zenith appears far too wide compared to one near the horizon.
 
-**Limitation**: The `cos(altitude)` correction is a first-order approximation. For analemmas spanning a large altitude range (>30 deg), the compression factor changes significantly between the top and bottom of the figure-8, potentially introducing ~1-2 degree errors at the extremes. The engine uses the mean altitude of anchor and target as a midpoint approximation.
+The `cos(altitude)` correction is a first-order approximation. For analemmas spanning a large altitude range (>30 deg), the compression factor changes significantly between the top and bottom of the figure-8, potentially introducing ~1-2 degree errors at the extremes. The engine uses the mean altitude of anchor and target as a midpoint approximation.
 
 ### 1.3 Landscape Camera Orientation
 
@@ -34,9 +34,9 @@ The engine assumes the camera is held in normal landscape orientation (horizon r
 - Azimuth differences map to horizontal pixel offsets
 - Altitude differences map to vertical pixel offsets (inverted, since pixel y increases downward)
 
-**Limitation**: If the camera is tilted up toward the zenith, the mapping between (az, alt) and (x, y) pixels rotates and distorts. For cameras pointed at altitudes above ~70 deg, the simple linear mapping breaks down because the coordinate transform from equatorial-mounted (az/alt) axes to camera-frame (x/y) axes requires a full 3D rotation matrix. The current engine does not implement this.
+If the camera is tilted up toward the zenith, the mapping between (az, alt) and (x, y) pixels rotates and distorts. For cameras pointed at altitudes above ~70 deg, the simple linear mapping breaks down because the coordinate transform from equatorial-mounted (az/alt) axes to camera-frame (x/y) axes requires a full 3D rotation matrix. The current engine doesn't implement this.
 
-**Practical consequence**: The dummy test case (UIUC noon on summer solstice, altitude ~70 deg) shows some shape distortion in the overlay compared to the sky chart. This is expected and is a fundamental limitation of the flat-field projection at extreme altitudes.
+A near-zenith observation (altitude ~70 deg) shows noticeable shape distortion in the overlay compared to the sky chart. This is expected -- a fundamental limitation of the flat-field projection at extreme altitudes.
 
 ---
 
@@ -46,10 +46,10 @@ The engine assumes the camera is held in normal landscape orientation (horizon r
 
 The engine uses the `timezonefinder` library to look up the IANA timezone name (e.g., "America/Chicago") from GPS coordinates, then uses Python's `zoneinfo` module to determine the exact UTC offset for the given reference datetime. This correctly handles:
 
-- **Political timezone boundaries**: Hawaii is UTC-10 (not UTC-11 from `round(lon/15)`)
-- **DST transitions**: UIUC in September gets UTC-5 (CDT), while in January it would get UTC-6 (CST)
-- **Half-hour offsets**: India gets UTC+5:30 (Asia/Kolkata)
-- **Non-standard offsets**: Western China uses UTC+6 (Asia/Urumqi) or UTC+8 (Asia/Shanghai) depending on the political boundary
+- Political timezone boundaries: Hawaii is UTC-10 (not UTC-11 from `round(lon/15)`)
+- DST transitions: UIUC in September gets UTC-5 (CDT), while in January it would get UTC-6 (CST)
+- Half-hour offsets: India gets UTC+5:30 (Asia/Kolkata)
+- Non-standard offsets: Western China uses UTC+6 (Asia/Urumqi) or UTC+8 (Asia/Shanghai) depending on the political boundary
 
 ### 2.2 Limitation: DST and Year-Long Analemma
 
@@ -58,7 +58,7 @@ The engine calculates the analemma for a fixed clock time throughout the year. T
 - If the photo was taken during DST, the entire analemma is computed with the DST offset
 - In reality, the sun positions in the non-DST months would correspond to a different clock time (one hour earlier/later)
 
-This is **not a bug** -- it reflects the physical question "where would the sun be at this clock time every day of the year?" The DST-vs-standard ambiguity is inherent to clock time; the engine uses whatever offset applies at the reference date.
+This isn't a bug -- it reflects the physical question "where would the sun be at this clock time every day of the year?" The DST-vs-standard ambiguity is inherent to clock time; the engine uses whatever offset applies at the reference date.
 
 ### 2.3 Fallback Behavior
 
@@ -70,20 +70,23 @@ If `timezonefinder` is not installed, the engine falls back to `round(longitude 
 
 ### 3.1 Current Algorithm
 
-The CV pipeline detects the sun by:
-1. Converting to grayscale using `max(R, G, B)` per pixel
-2. Thresholding at 99.9% of the maximum brightness
-3. Labeling connected components (requires `scipy`)
-4. Selecting the largest bright blob
-5. Computing its brightness-weighted center of mass
+The CV pipeline uses a multi-stage approach to find the sun:
+
+1. EXIF orientation correction via `PIL.ImageOps.exif_transpose()`
+2. Grayscale conversion using `max(R, G, B)` per pixel (preserves saturation better than luminance-weighted average)
+3. Progressive thresholding: starts at 99.9% of max brightness, lowers through [99.5, 99, 98.5, ..., 96%] until a blob with >= 20 pixels is found. This skips isolated glare artifacts that are bright but tiny.
+4. Connected component labeling (`scipy.ndimage.label`) selects the largest blob
+5. For large blobs (>100px): computes a Gaussian-blurred luminance peak within the blob's bounding box. Sigma scales with blob size: `sigma = max(1, min(blob_radius * 0.12, 5))`. The cap at 5 prevents over-smoothing on massive overexposed regions (>100k pixels).
+6. For small blobs (<=100px): brightness-weighted centroid via `scipy.ndimage.center_of_mass`
+7. Fallback: brightest pixel if no blob is found
 
 ### 3.2 Requirements and Failure Modes
 
-- **Requires scipy**: Without scipy, the fallback uses simple brightness averaging of all pixels above threshold, which is less robust
-- **Overexposed images**: When the sun is heavily overexposed, the bright region may be very large and oddly shaped, shifting the centroid
-- **Lens flare / reflections**: In images with strong specular reflections (Hong Kong harbor water, Robert Hawaii clouds), bright non-sun features can confuse the detector
-- **Obscured sun**: If the sun is behind clouds or haze (Nigeria sunset), the effective "sun" is a diffuse glow rather than a sharp disk
-- **Multiple bright sources**: The algorithm picks the largest blob, which may not always be the sun (e.g., sun reflection in water could be larger than the sky sun)
+- Without scipy, the fallback uses simple brightness averaging of all pixels above threshold, which is less robust
+- When the sun is heavily overexposed, the bright region may be very large and oddly shaped, shifting the centroid
+- Lens flare or specular reflections (Hong Kong harbor water, Robert Hawaii clouds) can create bright non-sun features that confuse the detector
+- If the sun is behind clouds or haze (Nigeria sunset), the effective "sun" is a diffuse glow rather than a sharp disk
+- The algorithm picks the largest blob, which may not always be the sun (a sun reflection in water could exceed the sky sun in size)
 
 ### 3.3 Override
 

@@ -134,13 +134,13 @@ Constants:
 
 - **Input:** Calculator output + observer latitude/longitude/timezone
 - **Output:** Enhanced dicts with added `{altitude, azimuth, hour_angle}` fields
-- **Timezone handling:** Accepts explicit `timezone_offset` parameter, or auto-detects via `round(longitude/15)` with a `UserWarning` when auto-detecting
+- **Timezone handling:** Three-tier system: explicit `timezone_offset` parameter > IANA auto-detection via `timezonefinder`/`zoneinfo` (DST-aware) > `round(longitude/15)` fallback with warning
 - **Key method:** `map_to_horizon(calc_results)` transforms an entire year of calculator data
 
-The timezone warning was added because `round(longitude/15)` fails for several real-world cases:
-- Hawaii: longitude -157.8 deg gives `round(-157.8/15) = -11`, but actual timezone is UTC-10
-- China: all of China uses UTC+8 despite spanning longitudes 73-135 deg
-- India: UTC+5:30, a half-hour offset that `round()` cannot produce
+The IANA detection was necessary because `round(longitude/15)` fails for:
+- Hawaii: longitude -157.8 gives `round(-157.8/15) = -11`, actual is UTC-10
+- China: uses UTC+8 despite spanning longitudes 73-135
+- India: UTC+5:30, a half-hour offset that `round()` can't produce
 
 ### Layer 3 - Visualization: `AnalemmaPlotter` (`plotter.py`)
 
@@ -182,14 +182,15 @@ This layer composes all three other layers internally:
 
 ### 4.1 Sun Detection (`_detect_sun_position()`)
 
-The detection pipeline uses brightness-based blob detection:
+The detection pipeline uses progressive thresholding with adaptive Gaussian refinement:
 
-1. **EXIF correction:** `PIL.ImageOps.exif_transpose()` handles camera orientation tags before processing
-2. **Grayscale conversion:** Takes the max of (R, G, B) per pixel (not luminance-weighted average), since the sun saturates all channels
-3. **Adaptive thresholding:** Creates a binary mask of pixels above 99.9% of the maximum brightness value
-4. **Component labeling** (with SciPy): `scipy.ndimage.label()` finds connected components in the mask; the largest blob is selected as the sun candidate
-5. **Brightness-weighted centroid:** `scipy.ndimage.center_of_mass()` computes sub-pixel center, weighted by original brightness values
-6. **Fallback** (without SciPy): If the bright cluster has > 10 pixels, takes a brightness-weighted average of coordinates; otherwise uses the single brightest pixel
+1. **EXIF correction:** `PIL.ImageOps.exif_transpose()` handles camera orientation tags before any pixel processing
+2. **Grayscale conversion:** Takes `max(R, G, B)` per pixel (not luminance-weighted average), since the sun saturates all channels equally
+3. **Progressive thresholding:** Starting at 99.9% of the max brightness, the threshold is progressively lowered through [99.5, 99.0, 98.5, ..., 96.0%] until a connected blob with >= 20 pixels is found. This skips isolated glare artifacts (single bright pixels from lens flare) that pass high thresholds but are too small to be the sun.
+4. **Component labeling:** `scipy.ndimage.label()` finds connected components in the binary mask; the largest blob is selected
+5. **Center refinement (large blobs, >100px):** For heavily overexposed suns, the blob is uniformly saturated and centroid-based methods are unreliable. Instead, a Gaussian blur is applied to the sum-of-channels luminance within the blob's bounding box, and the peak of the blurred image is used. Sigma scales adaptively: `sigma = max(1, min(blob_radius * 0.12, 5))`, where `blob_radius = sqrt(blob_size / pi)`. The cap at 5 prevents over-smoothing on massive blobs (e.g. hongkong at 163k pixels, radius ~228).
+6. **Center refinement (small blobs, <=100px):** Brightness-weighted centroid via `scipy.ndimage.center_of_mass()`
+7. **Fallback:** If no blob is found at any threshold, the single brightest pixel is used
 
 Returns `(x, y)` pixel coordinates of the detected sun center.
 
@@ -231,13 +232,12 @@ Without this correction, the analemma overlay appears horizontally stretched at 
 The overlay process:
 1. Calculate 365 analemma points at the anchor time-of-day
 2. Map each to horizon coordinates (altitude, azimuth)
-3. Filter out points below the horizon (altitude < 0)
-4. Convert remaining points to pixel coordinates via `sky_to_pixel()`
-5. Draw connecting lines between consecutive visible points (yellow by default)
-6. Draw dots at each position with optional date labels (every N days)
-7. Mark the anchor point with a red circle and timestamp annotation
-8. Add metadata text overlay (location coordinates, analemma time)
-9. Save the composited image
+3. Convert all points to pixel coordinates via `sky_to_pixel()` (no altitude filtering -- points below the horizon are included if they fall within image bounds)
+4. Draw connecting line segments between consecutive in-bounds points, breaking the polyline at out-of-bounds gaps to prevent spurious lines across the image
+5. Draw dots at each visible position with optional date labels (every N days)
+6. Mark the anchor point with a red circle and timestamp annotation
+7. Add metadata text overlay (location coordinates, analemma time)
+8. Save the composited image
 
 A separate `create_composite_plot()` method generates a 2-panel matplotlib figure with the overlaid image on the left and a sky chart (altitude vs. azimuth scatter) on the right.
 
@@ -285,7 +285,7 @@ input_images/<name>/metadata.txt
   generate_analemma_points() --> overlay_analemma()
         |
         v
-  output/<name>_output/<name>_overlay_<mode>.png
+  output/<name>_output/<name>_overlay.png
 ```
 
 ---
@@ -298,9 +298,10 @@ input_images/<name>/metadata.txt
 | Matplotlib | Static plots, composite figures, image rendering | Yes |
 | Pillow (PIL) | Image loading, EXIF handling, overlay drawing | Yes |
 | Pandas | Data manipulation (optional usage) | Yes |
-| Astropy | JPL DE440/441 ephemeris for high-precision mode | For HP mode |
-| SciPy | Connected-component labeling, center-of-mass for sun detection | For CV pipeline |
-| Plotly | Interactive hover-enabled scatter plots | For interactive mode |
+| Astropy | JPL DE440/441 ephemeris for high-precision mode | Yes |
+| SciPy | Connected-component labeling, Gaussian filtering for sun detection | Yes |
+| Timezonefinder | IANA timezone lookup from GPS coordinates | Yes |
+| Plotly | Interactive hover-enabled scatter plots | Yes |
 
 **CLI tools:** `argparse` for the command-line interface (`analemma_cli.py`), `pathlib` for cross-platform path handling, `datetime` for temporal calculations.
 
@@ -319,14 +320,17 @@ input_images/<name>/metadata.txt
 
 | Dataset | Location | Lat | Camera | Notes |
 |---------|----------|-----|--------|-------|
-| hongkong | Hong Kong | 22.3 N | iPhone 14 Plus | Sunset from Ap Lei Chau, TZ auto-detect correct (UTC+8) |
-| nigeria | Jos Plateau | 9.8 N | iPhone 14 Plus | Near-equatorial, low sun, all 365 points visible |
-| robert_hawaii | Honolulu | 21.3 N | iPhone 16 Pro | Requires `TIMEZONE_OFFSET=-10` (auto-detect gives -11) |
-| raghav | UIUC | 40.1 N | iPhone 16 Pro UW | Near-sunset, 163/365 below horizon |
-| raghav2 | Oregon | 45.2 N | GoPro Hero5 | High sun (noon-ish), paragliding photo |
-| raghav6 | Houston KTME | 29.8 N | iPhone 16 Pro UW | Airport tarmac, afternoon sun |
-| sharjah_sands | UAE | 25.3 N | Nikon D3100 | Desert sunset, 246/365 below horizon |
-| dummy | UIUC (synthetic) | 40.1 N | Synthetic | Summer solstice noon, synthetic test image |
+| hongkong | Hong Kong | 22.3 N | Canon PowerShot G10 | Sunset from Ap Lei Chau, TZ auto-detect correct (UTC+8) |
+| nigeria | Jos Plateau | 9.8 N | iPhone 14 Plus | Near-equatorial, low sun |
+| robert_hawaii | Honolulu | 21.3 N | iPhone 11 | Morning sun, requires `TIMEZONE_OFFSET=-10` |
+| raghav | UIUC | 40.1 N | iPhone 16 Pro | Near-sunset, ~240/365 below horizon |
+| raghav2 | Oregon | 45.2 N | -- | High sun, noon-ish |
+| raghav6 | Houston | 29.8 N | iPhone 16 Pro | Afternoon sun |
+| sharjah_sands | UAE | 25.3 N | Nikon D3100 | Desert sunset, analemma extends below horizon |
+| brofjorden | Sweden | 58.4 N | -- | Sunset over water |
+| cold_canada | Quebec | 46.8 N | -- | Winter morning, uniformly saturated sun blob |
+| russia_meadow | Germany | 49.2 N | -- | Large sun glow near horizon |
+| hunan | China | 27.0 N | -- | Morning sun |
 
 ### 7.3 Mode Comparison
 
@@ -342,39 +346,29 @@ These differences are consistent with published comparisons between the Spencer 
 
 ### 8.1 Timezone Auto-Detection
 
-**Problem:** `round(longitude/15)` produces incorrect timezones for locations where political boundaries differ from geographic longitude bands.
+The naive `round(longitude/15)` formula fails for locations where political timezones differ from geographic longitude bands (Hawaii at -157.8 gives -11 instead of -10, all of China uses +8 despite spanning 60 degrees of longitude, India uses +5.5).
 
-**Solution:** Added explicit `TIMEZONE_OFFSET` metadata field, passed through the ImageAnchorer to SkyMapper. When auto-detecting, a `UserWarning` is emitted with a message identifying the assumed timezone and recommending explicit specification.
+The engine now uses `timezonefinder` + `zoneinfo` to look up the IANA timezone name from GPS coordinates and compute the exact UTC offset for the anchor datetime. This correctly handles DST transitions, half-hour offsets, and political boundaries. Three-tier fallback: explicit `TIMEZONE_OFFSET` metadata field > IANA auto-detection > `round(lon/15)` with warning.
 
 ### 8.2 High-Precision EoT Calculation
 
-**Problem:** The original HP mode fell back to the approximate Spencer formula for EoT while using Astropy for declination, defeating the purpose of high-precision mode.
-
-**Solution:** Implemented proper EoT from first principles using Astropy's sun RA and the mean solar longitude $L_0$. The sign convention follows NOAA: $\text{EoT} = (L_0/15 - \text{RA}_\text{sun}) \times 60$ minutes.
+The original HP mode fell back to the approximate Spencer formula for EoT while using Astropy for declination, defeating the purpose. The fix computes EoT from first principles using Astropy's sun RA and the mean solar longitude $L_0$. Sign convention follows NOAA: $\text{EoT} = (L_0/15 - \text{RA}_\text{sun}) \times 60$ minutes.
 
 ### 8.3 Azimuthal Foreshortening in Image Projection
 
-**Problem:** A flat (linear) projection of azimuth to pixels produces a horizontally stretched overlay at high altitudes, because azimuth lines converge toward the zenith.
-
-**Solution:** Applied a $\cos(\bar{a})$ correction factor to the azimuthal pixel displacement, where $\bar{a}$ is the mean altitude between the anchor and target points. This models the spherical geometry of the sky dome.
+A flat linear projection of azimuth to pixels produces a horizontally stretched overlay at high altitudes because azimuth lines converge toward the zenith. The fix applies a $\cos(\bar{a})$ correction factor to the azimuthal pixel displacement, where $\bar{a}$ is the mean altitude between anchor and target. This models the spherical geometry of the sky dome.
 
 ### 8.4 FOV from Focal Length
 
-**Problem:** Focal length alone is insufficient to determine field of view because it depends on sensor size (35mm equivalent vs. APS-C vs. phone sensors).
-
-**Solution:** Mandatory sensor dimensions in metadata, with FOV computed via the thin-lens formula $\text{FOV} = 2\arctan(\text{sensor}/2f)$.
+Focal length alone doesn't determine field of view -- it depends on sensor size. A 50mm lens on full-frame (36mm sensor) gives 40 deg FOV, but the same lens on APS-C (23.5mm sensor) gives 27 deg. Both sensor dimensions and focal length are mandatory in metadata. FOV is computed via $\text{FOV} = 2\arctan(\text{sensor}/2f)$.
 
 ### 8.5 Sun Detection Robustness
 
-**Problem:** Simple brightest-pixel approaches fail when the sky has multiple bright regions (clouds, reflections, over-exposed areas).
-
-**Solution:** Multi-stage pipeline: max-channel grayscale (not luminance) to preserve sun saturation, 99.9th percentile adaptive threshold, connected component analysis to isolate the largest bright blob, brightness-weighted centroid for sub-pixel accuracy.
+Simple brightest-pixel approaches fail when the sky has glare artifacts, reflections, or multiple bright regions. The progressive thresholding approach (Section 4.1) handles this by requiring a minimum blob size of 20 pixels, which filters out isolated hot pixels. For large overexposed blobs where the entire region is uniformly saturated (e.g. cold_canada's 411-pixel blob with RGB values 244-246 across all channels), there's no meaningful gradient to locate a "true" center. The Gaussian blur peak is the best available estimate in this case. The adaptive sigma scaling (0.12 * blob_radius, capped at 5) was tuned across 11 test images spanning blob sizes from 411px to 163k px.
 
 ### 8.6 EXIF Orientation
 
-**Problem:** Many phone cameras store images in landscape orientation with an EXIF rotation tag. Processing the raw pixel array without correction produces rotated overlays.
-
-**Solution:** `PIL.ImageOps.exif_transpose()` is applied immediately after loading, before any pixel-level operations.
+Many phone cameras store images in landscape orientation with an EXIF rotation tag. Processing raw pixels without correcting for this produces rotated overlays. `PIL.ImageOps.exif_transpose()` is applied immediately after loading, before any pixel-level operations.
 
 ---
 
@@ -386,5 +380,5 @@ These differences are consistent with published comparisons between the Spencer 
 | Utility scripts | 3+ (CLI, demo scripts, examples) |
 | Calculation modes | 2 (approximate, high-precision) |
 | Visualization types | 6 (sky chart, figure-8, time series, polar, interactive, comparison) |
-| Real-world test datasets | 8 (across 6 countries, 4 camera types) |
+| Real-world test datasets | 11 (across 8 countries, 5+ camera types) |
 | Image formats supported | JPG, JPEG, PNG, GIF, BMP, TIFF |

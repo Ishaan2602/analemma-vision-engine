@@ -1,0 +1,27 @@
+# Hong Kong Sky Photo - Metadata
+# Format: KEY=VALUE (parser reads only this section)
+
+# === REQUIRED METADATA ===
+IMAGE_FILE=hongkong_img.jpeg
+DATETIME=2014-09-02 16:20:48
+LATITUDE=22.3
+LONGITUDE=114.2
+FOCAL_LENGTH_MM=6.1
+SENSOR_WIDTH_MM=7.4
+SENSOR_HEIGHT_MM=5.5
+
+# === OPTIONAL METADATA ===
+CAMERA_MAKE=Canon
+CAMERA_MODEL=Canon PowerShot G10
+LOCATION_NAME=Hong Kong harbor
+
+# --- REFERENCE DATA (NOT PARSED) ---
+# Additional EXIF metadata for reference/future enhancement:
+# Exposure: 1/1250 sec, f/8, ISO 80
+# Orientation: Rotated 90° CW (handled automatically)
+# Sensor type: One-chip color area sensor
+# Color space: sRGB
+# Focal plane resolution: 11,835.6 x 11,835.6 per inch
+# Exposure mode: Manual
+# White balance: Auto
+# Original file date: 2014-09-02 16:20:48

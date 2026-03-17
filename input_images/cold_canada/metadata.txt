@@ -1,0 +1,29 @@
+# Cold_Canada Sky Photo - Metadata
+# Format: KEY=VALUE (parser reads only this section)
+
+# === REQUIRED METADATA ===
+# IMAGE_FILE is optional - will auto-detect image in folder
+# IMAGE_FILE=photo.jpg
+DATETIME=2009-12-20 10:53:00
+LATITUDE=46.809397
+LONGITUDE=-71.2077
+FOCAL_LENGTH_MM=24
+SENSOR_WIDTH_MM=23.4
+SENSOR_HEIGHT_MM=15.6
+
+# === OPTIONAL METADATA ===
+ALTITUDE_M=74.64
+CAMERA_MAKE=
+CAMERA_MODEL=
+LOCATION_NAME=
+
+# --- REFERENCE DATA (NOT PARSED) ---
+# Additional notes, EXIF data, etc.
+# Everything below this line is ignored by the parser
+#
+# Common sensor sizes for reference:
+# - iPhone 14/15/16 main: 7.8mm x 5.8mm
+# - iPhone 14/15/16 ultrawide: 5.6mm x 4.2mm
+# - Full frame DSLR: 36mm x 24mm
+# - APS-C DSLR: 23.5mm x 15.6mm
+# - Micro 4/3: 17.3mm x 13mm

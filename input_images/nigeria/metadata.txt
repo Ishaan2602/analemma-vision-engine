@@ -1,0 +1,31 @@
+# Nigeria Sky Photo - Metadata
+# Format: KEY=VALUE (parser reads only this section)
+
+# === REQUIRED METADATA ===
+IMAGE_FILE=nigeria_img.jpg
+DATETIME=2025-01-19 17:47:17
+LATITUDE=9.766100
+LONGITUDE=8.278986
+FOCAL_LENGTH_MM=5.7
+SENSOR_WIDTH_MM=7.8
+SENSOR_HEIGHT_MM=5.8
+
+# === OPTIONAL METADATA ===
+ALTITUDE_M=859.982
+CAMERA_MAKE=Apple
+CAMERA_MODEL=iPhone 14 Plus
+LOCATION_NAME=Nigeria
+
+# --- REFERENCE DATA (NOT PARSED) ---
+# Additional EXIF metadata for reference/future enhancement:
+# GPS: 9°45'57.96"N, 8°16'44.35"E, 859.982m altitude
+# Exposure: 1/1934 sec, f/1.5, ISO 50
+# Orientation: Rotated 90° CCW (handled automatically)
+# Focal length (35mm equiv): 26mm
+# GPS bearing: 241.997° true direction
+# GPS time: 16:47:17 UTC (17:47:17 local)
+# Exposure mode: Auto
+# White balance: Auto
+# Sensor: One-chip color area sensor
+# Scene: Standard, directly photographed
+# Software: iOS 17.6.1
