@@ -217,6 +217,8 @@ async def api_charts(
             datetime_str=datetime_str,
         )
         return result
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception:
         logger.exception("Unexpected error in /api/charts")
         raise HTTPException(

@@ -12,99 +12,92 @@
 	<section class="space-y-4">
 		<p>
 			If you photograph the sun from the same spot, at the same time of day, every week for an
-			entire year, the sun won't be in the same place. Instead, it traces a tall, narrow figure-eight
-			shape called an <strong class="text-slate-100">analemma</strong>.
+			entire year, the sun won't be in the same place. It drifts. Over twelve months those
+			positions trace out a tall, narrow figure-eight called an
+			<strong class="text-slate-100">analemma</strong>.
 		</p>
 		<p>
-			It's one of those things that seems wrong at first -- intuitively, the sun "should" be in
-			the same place at noon every day. But the Earth's orbit isn't circular, and its axis is
-			tilted, and those two facts combine to produce this distinctive pattern.
+			This feels wrong at first. Intuitively the sun "should" be in the same spot at noon
+			every day. But the Earth's orbit isn't circular, and its axis is tilted 23.44 degrees
+			off vertical, and those two facts together are enough to produce the pattern.
 		</p>
 	</section>
 
 	<section class="space-y-4">
 		<h2 class="text-xl font-semibold text-slate-100">Why does it happen?</h2>
 		<p>
-			Two factors drive the analemma's shape:
+			The figure-eight comes from two independent effects layered on top of each other.
 		</p>
-		<ul class="list-disc list-inside space-y-2 ml-2 text-slate-300">
-			<li>
-				<strong class="text-slate-100">Axial tilt (obliquity):</strong> Earth's axis is tilted about
-				23.44 degrees relative to its orbital plane. This causes the sun's declination to oscillate
-				between +23.44 and -23.44 degrees over a year -- high in summer, low in winter. This
-				produces the vertical spread of the analemma.
-			</li>
-			<li>
-				<strong class="text-slate-100">Orbital eccentricity:</strong> Earth's orbit is slightly
-				elliptical. It moves faster near perihelion (early January) and slower near aphelion (early
-				July). This means the sun isn't exactly where a "mean sun" clock predicts. The difference is
-				called the Equation of Time, and it shifts the sun east or west of its mean position,
-				creating the horizontal width and the asymmetry of the figure-eight.
-			</li>
-		</ul>
 		<p>
-			Neither effect alone produces a figure-eight. Axial tilt alone gives a vertical line. Eccentricity
-			alone gives a horizontal oscillation. Together, they form the asymmetric loop -- the top lobe is
-			typically smaller than the bottom because perihelion and solstice don't coincide.
+			<strong class="text-slate-100">Axial tilt</strong> is the more intuitive one. Because
+			Earth's rotation axis is tilted relative to its orbital plane, the sun's declination
+			(its angular height above or below the celestial equator) swings between +23.44 and
+			-23.44 degrees over the course of a year. Higher in summer, lower in winter. That
+			oscillation gives the analemma its vertical extent.
+		</p>
+		<p>
+			<strong class="text-slate-100">Orbital eccentricity</strong> is subtler. Earth's orbit
+			is slightly elliptical, so it moves faster near perihelion (early January) and slower
+			near aphelion (early July). The practical effect is that the sun doesn't cross your local
+			meridian at exactly noon every day. The deviation, called the Equation of Time, can be
+			as large as 16 minutes. It shifts the sun east or west of where a perfectly regular clock
+			would predict, which creates the horizontal width of the figure-eight and makes the two
+			lobes asymmetric.
+		</p>
+		<p>
+			Neither effect alone makes a figure-eight. Tilt alone would give you a vertical line;
+			eccentricity alone, a horizontal oscillation. It's the combination that produces two
+			loops of different sizes, with the top lobe typically smaller because perihelion and the
+			winter solstice fall only about two weeks apart.
 		</p>
 	</section>
 
 	<section class="space-y-4">
 		<h2 class="text-xl font-semibold text-slate-100">Does it look the same everywhere?</h2>
 		<p>
-			No. The analemma's shape is the same from anywhere on Earth (it's determined by orbital
-			mechanics, not geography), but its <em>orientation and position in the sky</em> change
-			dramatically with latitude and time of day.
+			The shape is identical from anywhere on Earth, since it's entirely determined by orbital
+			mechanics. But its <em>orientation and position in the sky</em> change a lot depending
+			on where you are and what time of day you're photographing.
 		</p>
-		<ul class="list-disc list-inside space-y-2 ml-2 text-slate-300">
-			<li>
-				At the <strong class="text-slate-100">equator at noon</strong>, the analemma stands nearly
-				vertical, centered high overhead.
-			</li>
-			<li>
-				At <strong class="text-slate-100">mid-northern latitudes</strong> (like 40 N), a noon
-				analemma tilts south and appears in the southern sky.
-			</li>
-			<li>
-				Photographed at <strong class="text-slate-100">sunrise or sunset</strong>, the analemma tilts
-				strongly sideways and may partially dip below the horizon.
-			</li>
-			<li>
-				In the <strong class="text-slate-100">southern hemisphere</strong>, the figure-eight is
-				inverted -- the larger lobe is on top.
-			</li>
-		</ul>
-	</section>
-
-	<section class="space-y-4">
-		<h2 class="text-xl font-semibold text-slate-100">Do other planets have analemmas?</h2>
 		<p>
-			Yes, but they look different. Mars has a teardrop shape because its orbital eccentricity is
-			much larger and its axial tilt is similar to Earth's. A planet with zero axial tilt would
-			trace a horizontal line. One with a circular orbit but nonzero tilt would trace a vertical
-			figure-eight with equal lobes.
+			At the equator around noon, the analemma stands nearly vertical, centered high overhead.
+			At mid-northern latitudes (say, 40 N) a noon analemma tilts toward the south. Photograph
+			it at sunrise or sunset and the whole thing rotates sideways, sometimes dipping partly
+			below the horizon. In the southern hemisphere the larger lobe ends up on top instead of
+			the bottom.
 		</p>
 	</section>
 
 	<section class="space-y-4">
-		<h2 class="text-xl font-semibold text-slate-100">What Analemma Vision does</h2>
+		<h2 class="text-xl font-semibold text-slate-100">Other planets</h2>
 		<p>
-			This tool computes the sun's position for every week of the year at a given time and
-			location using high-precision JPL DE440 ephemeris data via Astropy. It then projects those
-			positions onto your photograph using a tangent-plane camera model matched to the photo's
-			focal length and sensor dimensions. The result is a precise analemma curve overlaid on your
-			actual sky.
+			Every planet with a tilted axis or an eccentric orbit has some version of an analemma.
+			Mars makes a teardrop rather than a figure-eight because its orbit is far more
+			eccentric than Earth's. A hypothetical planet with zero tilt would trace a horizontal
+			line; one with a perfectly circular orbit but nonzero tilt would give you a symmetric
+			figure-eight with equal-sized lobes.
+		</p>
+	</section>
+
+	<section class="space-y-4">
+		<h2 class="text-xl font-semibold text-slate-100">What this app does</h2>
+		<p>
+			Analemma Vision computes the sun's position for every day of the year at your chosen
+			time and location, using high-precision JPL DE440 ephemeris data through Astropy. It
+			then projects those positions onto your photograph with a tangent-plane camera model
+			built from the photo's focal length and sensor dimensions, and the result is a precise
+			analemma curve rendered directly on your sky.
 		</p>
 		<p>
-			You can upload any sky photo -- the app detects the sun's position in the image,
-			determines the exact camera geometry, and renders the full-year path. If automatic sun
-			detection fails, you can select the sun's position manually.
+			Upload any photo with the sun in it. The app will try to detect the sun automatically;
+			if that doesn't work (overcast, lens flare, the sun is behind clouds), you can click
+			to select its position manually.
 		</p>
 	</section>
 
 	<footer class="border-t border-slate-700 pt-6 text-sm text-slate-500">
 		<p>
-			For the mathematical details behind the projection and computation, see the
+			The math and engineering behind the projection are covered on the
 			<a href="/methodology" class="text-amber-400 hover:text-amber-300">Methodology</a> page.
 		</p>
 	</footer>
