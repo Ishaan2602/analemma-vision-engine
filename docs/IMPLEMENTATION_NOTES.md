@@ -23,9 +23,7 @@ Fix: three changes working together.
 
 ### 2. raghav2 produces a different analemma than expected
 
-Root cause: metadata error. `FOCAL_LENGTH_MM=15` is the 35mm-equivalent focal length, not the actual focal length (~2.8mm). With the actual GoPro Hero5 Session sensor (6.17x4.55mm), this produces a computed FoV of ~23 degrees instead of the true ~96 degrees. The analemma curve is therefore compressed into a tiny region.
-
-This is not an app bug. The engine correctly uses whatever focal length the user provides. The fix is for the user to enter the actual focal length (2.8mm) rather than the 35mm equivalent.
+False alarm -- the user had entered wrong metadata while testing (35mm-equivalent focal length instead of actual). With correct metadata, raghav2 produces the right output. No code changes were made for this issue.
 
 ### 3. Connecting line drawn across image when analemma is cut off
 

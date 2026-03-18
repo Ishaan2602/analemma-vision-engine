@@ -16,7 +16,7 @@ User tested the live app and reported 6 issues. Investigation, planning, and imp
 3. Connecting line across image -- single continuous SVG path connected all in-bounds points chronologically. When the analemma exits bounds and re-enters elsewhere, the path drew a diagonal line across the image.
 4. Low-quality sample images -- 400px wide, JPEG quality 85.
 5. Lines/dots too thick in SVG overlay.
-6. raghav2 wrong analemma -- metadata has 35mm-equivalent focal length (15mm) instead of actual (2.8mm). Not an app bug; requires correct metadata.
+6. raghav2 wrong analemma -- turned out to be wrong test metadata (user entered 35mm-equivalent focal length). No code changes needed; output is correct with proper metadata.
 
 **Fixes applied:**
 - `scripts/generate_thumbnails.py` -- EXIF transpose before resize, 1200px wide (was 400px), quality 90.
