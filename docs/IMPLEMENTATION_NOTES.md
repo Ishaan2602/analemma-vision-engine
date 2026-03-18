@@ -4,6 +4,34 @@ Technical details, theory explanations, and answers to implementation questions.
 
 ---
 
+## Session 4
+
+### SVG overlay animation approach
+
+The analemma overlay uses native SVG animation rather than Svelte transitions for the path draw effect. The path's `strokeDasharray` and `strokeDashoffset` are animated via `requestAnimationFrame` with `cubicInOut` easing from Svelte's easing module. This gives smoother control than CSS transitions and avoids FLIP animation complexity.
+
+The dots use SVG `<animate>` elements with staggered `begin` times (starting at 3s, each dot delayed by 15ms), so they appear to "pop in" after the path finishes drawing. Date labels fade in at 4.5s. The anchor point (photo datetime) is highlighted red with a white stroke.
+
+For hover tooltips, we translate mouse coordinates to SVG viewBox coordinates using the container's bounding rect and the image dimensions ratio, then find the nearest point within a 2% threshold.
+
+### ProcessPoolExecutor for engine calls
+
+The analemma engine (Astropy + JPL DE440 ephemeris) is CPU-bound and takes 2-10 seconds per calculation. Using `asyncio.run_in_executor` with `ProcessPoolExecutor(max_workers=2)` prevents blocking the FastAPI event loop. The worker limit of 2 is conservative for a single-container deployment -- each worker loads the full JPL ephemeris into memory (~30MB).
+
+Temp files are used to pass images to the engine (which expects file paths, not bytes). Cleanup happens in `finally` blocks to prevent disk buildup.
+
+### Three-tier sensor detection
+
+The sensor size (needed for field-of-view calculation) is detected through three tiers, in priority order:
+
+1. **EXIF crop factor**: If both `FocalLength` and `FocalLengthIn35mmFormat` exist in EXIF, the crop factor is `35mm / actual`. Combined with aspect ratio detection from image dimensions, this gives sensor width and height. Most cameras write these fields.
+
+2. **Lensfun database lookup**: If Tier 1 fails (e.g., one focal length field is missing), we look up the camera make + model in a JSON file derived from the Lensfun project's camera database. The JSON maps `"make model"` (lowercased) to `{cropfactor, maker, model}`. A partial match fallback handles model variations.
+
+3. **Manual entry**: The user types sensor dimensions directly. Default placeholder values guide toward common sizes.
+
+---
+
 ## Session 3
 
 ### Why a monorepo with frontend/ and backend/ instead of separate repos

@@ -1,9 +1,19 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+from api.routes import router
+
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title="Analemma Vision API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # In development: defaults to localhost
 # In production: set ALLOWED_ORIGINS=https://analemmavision.app on DO
@@ -17,6 +27,14 @@ app.add_middleware(
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
+
+app.include_router(router)
+
+
+@app.on_event("startup")
+async def startup():
+    import pillow_heif
+    pillow_heif.register_heif_opener()
 
 
 @app.get("/health")
