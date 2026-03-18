@@ -1,11 +1,13 @@
 """Generate thumbnail images for the sample gallery.
 
 Reads the original images from input_images/ and writes resized
-copies (400px wide, JPEG quality 85) to frontend/static/samples/.
+copies (1200px wide, JPEG quality 90) to frontend/static/samples/.
+Applies EXIF orientation before resizing so the thumbnail matches
+what the engine sees after exif_transpose.
 """
 
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageOps
 
 SAMPLES = {
     "brofjorden": "brofjorden.jpg",
@@ -19,7 +21,7 @@ SAMPLES = {
 INPUT_DIR = Path(__file__).parent.parent / "input_images"
 OUTPUT_DIR = Path(__file__).parent.parent / "frontend" / "static" / "samples"
 
-TARGET_WIDTH = 400
+TARGET_WIDTH = 1200
 
 
 def main():
@@ -32,6 +34,13 @@ def main():
             continue
 
         img = Image.open(src)
+
+        # Apply EXIF orientation first (critical for images with rotation tags)
+        try:
+            img = ImageOps.exif_transpose(img)
+        except Exception:
+            pass
+
         img = img.convert("RGB")
 
         # Resize proportionally
@@ -40,7 +49,7 @@ def main():
         img = img.resize((TARGET_WIDTH, new_height), Image.LANCZOS)
 
         out = OUTPUT_DIR / f"{sample_id}_thumb.jpg"
-        img.save(out, "JPEG", quality=85)
+        img.save(out, "JPEG", quality=90)
         print(f"OK {sample_id}: {img.width}x{img.height} -> {out}")
 
 

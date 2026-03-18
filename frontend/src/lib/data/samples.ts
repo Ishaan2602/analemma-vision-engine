@@ -8,6 +8,8 @@ export interface SampleImageData {
 	focalLength: number;
 	sensorWidth: number;
 	sensorHeight: number;
+	sunX?: number;
+	sunY?: number;
 	license: string;
 	author: string;
 }
@@ -23,6 +25,8 @@ export const SAMPLE_IMAGES: SampleImageData[] = [
 		focalLength: 17.4,
 		sensorWidth: 13.2,
 		sensorHeight: 8.8,
+		sunX: 986,
+		sunY: 308,
 		license: 'CC BY-SA 4.0',
 		author: 'W.carter'
 	},
@@ -36,6 +40,8 @@ export const SAMPLE_IMAGES: SampleImageData[] = [
 		focalLength: 24,
 		sensorWidth: 23.4,
 		sensorHeight: 15.6,
+		sunX: 702,
+		sunY: 215,
 		license: 'CC BY 2.0',
 		author: 'Emmanuel Huybrechts'
 	},
@@ -49,6 +55,8 @@ export const SAMPLE_IMAGES: SampleImageData[] = [
 		focalLength: 6.1,
 		sensorWidth: 7.4,
 		sensorHeight: 5.5,
+		sunX: 436,
+		sunY: 254,
 		license: 'CC BY-SA 4.0',
 		author: 'Kailanchoi'
 	},
@@ -62,6 +70,8 @@ export const SAMPLE_IMAGES: SampleImageData[] = [
 		focalLength: 3.95,
 		sensorWidth: 5.6,
 		sensorHeight: 4.2,
+		sunX: 473,
+		sunY: 130,
 		license: 'CC0 1.0',
 		author: 'Huangdan2060'
 	},
@@ -75,6 +85,8 @@ export const SAMPLE_IMAGES: SampleImageData[] = [
 		focalLength: 18,
 		sensorWidth: 23.6,
 		sensorHeight: 15.6,
+		sunX: 568,
+		sunY: 386,
 		license: 'CC BY 4.0',
 		author: 'Aleksandr Serebrennikov'
 	},
@@ -88,6 +100,8 @@ export const SAMPLE_IMAGES: SampleImageData[] = [
 		focalLength: 35,
 		sensorWidth: 35.9,
 		sensorHeight: 24.0,
+		sunX: 532,
+		sunY: 304,
 		license: 'CC BY-SA 4.0',
 		author: 'Roman Eisele'
 	}

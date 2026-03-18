@@ -44,6 +44,8 @@ class SampleImage(BaseModel):
     focal_length_mm: float
     sensor_width_mm: float
     sensor_height_mm: float
+    sun_x: Optional[int] = None
+    sun_y: Optional[int] = None
     license: str
     author: str
 

@@ -6,6 +6,10 @@ Most recent work at the top.
 
 ## Session 4 -- started 2026-03-18
 
+### Prompt 3 (2026-03-18) -- Fix matplotlib import error
+
+Backend was still 500ing after the ThreadPoolExecutor fix. The new logging revealed `ModuleNotFoundError: No module named 'matplotlib'`. The import chain was: `image_anchor.py` -> `analemma/__init__.py` -> `plotter.py` -> `import matplotlib`. Two fixes: removed `AnalemmaPlotter` from the backend `__init__.py` (API never uses it), and made the `import matplotlib` in `image_anchor.py` lazy (inside `create_composite_plot()`, which the API also never calls). Verified locally that the import chain works clean.
+
 ### Prompt 2 (2026-03-18) -- Production bugfix and cleanup
 
 Debugged 500 Internal Server Error on `/api/analyze` in production (DigitalOcean App Platform).

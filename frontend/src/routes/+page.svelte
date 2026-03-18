@@ -97,8 +97,8 @@
 		metadata.focalLength = String(sample.focalLength);
 		metadata.sensorWidth = String(sample.sensorWidth);
 		metadata.sensorHeight = String(sample.sensorHeight);
-		metadata.sunX = '';
-		metadata.sunY = '';
+		metadata.sunX = sample.sunX != null ? String(sample.sunX) : '';
+		metadata.sunY = sample.sunY != null ? String(sample.sunY) : '';
 		exifData = null;
 
 		// Fetch the thumbnail as a preview

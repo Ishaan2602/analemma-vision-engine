@@ -4,6 +4,55 @@ Technical details, theory explanations, and answers to implementation questions.
 
 ---
 
+## Session 4 -- continued (2026-03-18): Rendering Fixes
+
+### Investigation Summary
+
+Six issues were reported after initial deployment. Root causes traced below.
+
+### 1. Wrong analemma curves for sample images (hongkong, russia_meadow, etc.)
+
+Root cause: the frontend fetches 400px-wide JPEG thumbnails and sends them to the backend as the "image." The engine auto-detects the sun by finding the brightest pixel region. On a 400px compressed JPEG, JPEG artifacts and resolution loss cause the sun detection to land on a completely different pixel than on the original. Since the entire analemma curve is plotted relative to the anchor pixel, a shifted sun = a shifted curve.
+
+Additional issue for hongkong: the original JPEG has EXIF orientation tag (rotation). The engine calls `ImageOps.exif_transpose()` which rotates the original from 3456x2592 landscape to 2592x3456 portrait. But the thumbnail generation script didn't apply EXIF transpose before resizing, so the thumbnail is 400x300 landscape -- wrong aspect ratio, wrong orientation. The engine then calculates everything in landscape when the photo is actually portrait.
+
+Fix: three changes working together.
+- Regenerate thumbnails at 1200px wide with EXIF transpose applied first and quality 90.
+- Pre-compute each sample's sun pixel on the full-res original, scale proportionally to the 1200px thumbnail dimensions, and store as `sun_x`/`sun_y` in the sample metadata.
+- Frontend sends `sun_x`/`sun_y` with the FormData when a sample is selected. This bypasses auto-detection entirely, so the analeamma anchors to the correct pixel.
+
+### 2. raghav2 produces a different analemma than expected
+
+Root cause: metadata error. `FOCAL_LENGTH_MM=15` is the 35mm-equivalent focal length, not the actual focal length (~2.8mm). With the actual GoPro Hero5 Session sensor (6.17x4.55mm), this produces a computed FoV of ~23 degrees instead of the true ~96 degrees. The analemma curve is therefore compressed into a tiny region.
+
+This is not an app bug. The engine correctly uses whatever focal length the user provides. The fix is for the user to enter the actual focal length (2.8mm) rather than the 35mm equivalent.
+
+### 3. Connecting line drawn across image when analemma is cut off
+
+Root cause: the SVG path is built as a single continuous polyline -- `M x,y L x,y L x,y...` -- from all in-bounds points sorted chronologically. When the analemma goes out of bounds at one part of the figure-8 and re-enters at a distant point, the single path draws a straight line across the image connecting those distant points.
+
+Fix: detect gaps and break the path. Consecutive in-bounds points that are far apart (distance > some threshold based on the typical spacing) start a new `M` (moveTo) instead of `L` (lineTo). This produces multiple disjoint path segments with no spurious connecting lines. Same approach the backend engine uses in `overlay_analemma()`.
+
+### 4. Low-quality sample images
+
+Root cause: thumbnails were generated at 400px wide, JPEG quality 85, giving 7-20KB files. At this resolution the image looks noticeably blurry in the viewer, especially on desktop.
+
+Fix: regenerate at 1200px wide, quality 90. File sizes increase to roughly 50-150KB each (still small), but the visual quality improves substantially.
+
+### 5. SVG overlay lines and dots too thick
+
+The current sizing formulas were designed for rough visual impact but produce thicker strokes than the backend engine's PIL rendering. For a 1200px-wide image, `dotRadius = max(3, min(8, 1200/500)) = 3px` which is OK, but the stroke is also relatively thick.
+
+Fix: tighten the scaling formulas. Reduce dot radius range to 2-5px and stroke width to 1-2px to match the backend engine's subtler style.
+
+### 6. No save option on mobile
+
+The download button calls /api/render to get a PNG, then creates a temporary `<a>` element with `download` attribute and clicks it programmatically. Some mobile browsers (especially iOS Safari) block or ignore programmatic download clicks.
+
+Fix: add a client-side "Save Image" button that renders the SVG + underlying image to a `<canvas>`, converts to PNG blob, and opens it in a new tab via `window.open(blobUrl)`. This works universally on mobile -- the user can then long-press the image to save it. This also avoids an extra round-trip to the backend.
+
+---
+
 ## Session 4
 
 ### SVG overlay animation approach
