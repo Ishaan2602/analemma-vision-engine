@@ -312,7 +312,7 @@ class AnalemmaPlotter:
         return fig
     
     def plot_interactive(self, sky_data: List[Dict],
-                        title: str = "Interactive Analemma") -> go.Figure:
+                        title: str = "Interactive Analemma") -> "go.Figure":
         """
         Create an interactive plotly visualization.
         
