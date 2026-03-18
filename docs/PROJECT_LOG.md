@@ -6,6 +6,13 @@ Most recent work at the top.
 
 ## Session 4 -- started 2026-03-18
 
+### Prompt 6 (2026-03-18) -- Refinements: charts 500 fix, text naturalization
+
+Three fixes:
+1. Charts 500 error: the deployed server hadn't rebuilt with matplotlib yet. The code itself works locally. Added ValueError/RuntimeError handling to the /api/charts route (was only catching generic Exception). The root cause is that the DigitalOcean container needs to rebuild with the updated requirements.txt that now includes matplotlib.
+2. Naturalized About and Methodology page text. Reduced `--` (double-hyphen) usage, broke up formulaic sentence/paragraph structures, removed cookie-cutter summary patterns, varied paragraph length and connective tissue. Converted bullet-list sections to flowing prose where appropriate (especially the Limitations section). Let some paragraphs end without neat closings.
+3. No media elements were created for the info pages. Explained to user that the pages are text-only (no images or diagrams are served from the app), and any media would need to be added as static assets in `frontend/static/` and referenced via `<img>` tags in the pages.
+
 ### Prompt 5 (2026-03-18) -- Feature batch: chart viewer, sun picker, info pages
 
 Implemented three major features that were planned at the end of Prompt 4.

@@ -6,6 +6,10 @@ Technical details, theory explanations, and answers to implementation questions.
 
 ## Session 4 -- continued (2026-03-18): Feature Batch
 
+### Text naturalization approach
+
+The About and Methodology pages were rewritten to avoid common AI-generated patterns. Specific changes: reduced double-hyphen (em-dash substitute) usage from ~15 instances per page to 0-2, converted bulleted "Topic: description" lists into flowing paragraphs where the structure didn't add clarity (particularly in Limitations), varied paragraph length so not every block is 2-3 sentences, removed summarizing sentences that just restated what the preceding paragraph already said, and let some sections end without a neat concluding thought. The Methodology page kept its numbered structure and formula blocks since those are genuinely useful for scannability.
+
 ### Charts endpoint design
 
 The /api/charts endpoint only takes lat/lon/datetime -- no image upload needed. Sky chart and figure-8 are purely astronomical plots generated from the engine's AnalemmaPlotter. matplotlib uses the Agg backend to avoid GUI display issues in Docker. Charts are rendered at 150 DPI to BytesIO buffers, base64-encoded, and returned as JSON. Figures are explicitly closed after encoding to prevent memory leaks in the long-running server process.
