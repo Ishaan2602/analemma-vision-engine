@@ -21,6 +21,9 @@
 			every day. But the Earth's orbit isn't circular, and its axis is tilted 23.44 degrees
 			off vertical, and those two facts together are enough to produce the pattern.
 		</p>
+		<figure class="my-6">
+			<img src="/basicdiagram.png" alt="Diagram showing how the sun traces a figure-eight analemma pattern over a year" class="rounded-lg w-full" />
+		</figure>
 	</section>
 
 	<section class="space-y-4">
@@ -66,6 +69,9 @@
 			below the horizon. In the southern hemisphere the larger lobe ends up on top instead of
 			the bottom.
 		</p>
+		<figure class="my-6">
+			<img src="/not_all_analemma_same.png" alt="Comparison of how the analemma appears at different latitudes and times of day" class="rounded-lg w-full" />
+		</figure>
 	</section>
 
 	<section class="space-y-4">
@@ -77,6 +83,9 @@
 			line; one with a perfectly circular orbit but nonzero tilt would give you a symmetric
 			figure-eight with equal-sized lobes.
 		</p>
+		<figure class="my-6">
+			<img src="/diffplanets.png" alt="Analemma shapes on different planets" class="rounded-lg w-full" />
+		</figure>
 	</section>
 
 	<section class="space-y-4">
