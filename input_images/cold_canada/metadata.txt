@@ -17,6 +17,11 @@ CAMERA_MAKE=
 CAMERA_MODEL=
 LOCATION_NAME=
 
+# License
+# Creative Commons Attribution 2.0 Generic
+# https://commons.wikimedia.org/wiki/File:Cold_Sun_Landscape_(4698301386).jpg
+# "Cold Sun Landscape (4698301386).jpg" by Emmanuel Huybrechts is licensed under CC BY 2.0.
+
 # --- REFERENCE DATA (NOT PARSED) ---
 # Additional notes, EXIF data, etc.
 # Everything below this line is ignored by the parser

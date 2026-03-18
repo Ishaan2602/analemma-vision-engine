@@ -16,6 +16,11 @@ CAMERA_MAKE=Nikon
 CAMERA_MODEL=D3100
 LOCATION_NAME=Sharjah
 
+# License
+# Creative Commons Attribution 4.0 International
+# https://commons.wikimedia.org/wiki/File:Sun_in_the_sands.jpg
+# "Sun in the sands.jpg" by Aleksandr Serebrennikov is licensed under CC BY 4.0.
+
 # --- REFERENCE DATA (NOT PARSED) ---
 # Additional notes, EXIF data, etc.
 # Everything below this line is ignored by the parser

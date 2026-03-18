@@ -17,6 +17,11 @@ CAMERA_MAKE=
 CAMERA_MODEL=
 LOCATION_NAME=
 
+# License
+# Creative Commons Attribution-Share Alike 4.0 International
+# https://commons.wikimedia.org/wiki/File:Östringen_-_Tiefenbach_-_Kreuzbergkapelle_-_Situationsansicht_von_Osten_bei_Sonnenuntergang.jpg
+# "Östringen - Tiefenbach - Kreuzbergkapelle - Situationsansicht von Osten bei Sonnenuntergang.jpg" by Roman Eisele is licensed under CC BY-SA 4.0.
+
 # --- REFERENCE DATA (NOT PARSED) ---
 # Additional notes, EXIF data, etc.
 # Everything below this line is ignored by the parser

@@ -17,6 +17,11 @@ CAMERA_MAKE=
 CAMERA_MODEL=
 LOCATION_NAME=
 
+# License
+# Creative Commons CC0 1.0 Universal Public Domain Dedication
+# https://commons.wikimedia.org/wiki/File:Landscape_with_Rising_Sun_in_Dongkou_County.jpg
+# "Landscape with Rising Sun in Dongkou County.jpg" by Huangdan2060 is licensed under CC0 1.0.
+
 # --- REFERENCE DATA (NOT PARSED) ---
 # Additional notes, EXIF data, etc.
 # Everything below this line is ignored by the parser

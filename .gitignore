@@ -18,12 +18,14 @@ input_images/raghav/
 input_images/raghav2/
 input_images/raghav6/
 input_images/robert_hawaii/
+input_images/nigeria/
 
 # Private output images (corresponding to private inputs)
 output/raghav_output/
 output/raghav2_output/
 output/raghav6_output/
 output/robert_hawaii_output/
+output/nigeria_output/
 
 # IDE
 .vscode/
@@ -36,3 +38,15 @@ output/robert_hawaii_output/
 Thumbs.db
 
 nul
+
+# Frontend
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+
+# Backend
+backend/__pycache__/
+backend/.env
+
+# Environment files
+.env.local

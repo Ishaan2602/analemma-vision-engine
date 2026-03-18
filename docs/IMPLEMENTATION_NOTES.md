@@ -4,6 +4,149 @@ Technical details, theory explanations, and answers to implementation questions.
 
 ---
 
+## Session 3
+
+### Why a monorepo with frontend/ and backend/ instead of separate repos
+
+For a solo developer, a single repo is strictly better. You get atomic commits across frontend and backend, one set of issues/PRs, and one `git clone` for local dev. Every major deployment platform (Vercel, Render, DigitalOcean, Fly.io) supports monorepos with per-directory build configuration.
+
+The engine code lives in `backend/analemma/` (copied from root) for Docker build context isolation. The root-level `analemma/` stays for CLI/notebook usage. This duplication is a V1 tradeoff -- long-term, packaging the engine as a pip-installable library (via pyproject.toml) eliminates the copy.
+
+### Why the overlay likely counts as a derivative under CC BY-SA
+
+The CC BY-SA 4.0 legal code defines "Adapted Material" as material "derived from or based upon the Licensed Material" that is "translated, altered, arranged, transformed, or otherwise modified." The analemma overlay adds new visual elements (the figure-8 curve, dots, labels) to the original photograph, creating a new combined image. Under most copyright frameworks, this constitutes a derivative/adaptation.
+
+Critical distinction: the **code** is not a derivative of the images (MIT stays MIT). Only the **output images** -- the photo with the overlay baked in -- inherit the input image's license obligations. For CC BY-SA inputs, the overlaid output must be released under CC BY-SA 4.0 with proper attribution. For CC BY inputs, any license works but attribution is still required. For CC0 inputs, no restrictions.
+
+### Why "both JSON + PNG" endpoints instead of one
+
+For the web app, the frontend needs raw coordinate data (JSON) to render the animated SVG overlay. But users also want a downloadable static PNG. These are fundamentally different outputs from the same computation.
+
+The JSON endpoint returns the analemma curve as an array of `{pixel_x, pixel_y, date, altitude, azimuth}` points. The frontend uses this for the animated SVG path. The PNG endpoint wraps the existing `overlay_analemma()` method. Both share the same computation chain (AnalemmaCalculator -> SkyMapper -> pixel mapping), so the API layer can compute once and serve both formats.
+
+### Why exifr over exif-js for client-side EXIF extraction
+
+exif-js (2.3.0) hasn't been updated since 2017 and can't parse HEIC containers at all -- it only handles JPEG and TIFF. It also loads all EXIF data into memory with no way to selectively parse specific tags.
+
+exifr (7.1.3) parses JPEG, HEIC, HEIF, TIFF, PNG, and AVIF. It supports selective parsing (`exifr.gps(file)` returns just GPS, `exifr.parse(file, { pick: ['FocalLength', 'Make'] })` fetches specific tags). It reads only the first ~64KB of the file by default, so parsing is near-instant even on large files. It's tree-shakeable (only import what you need), actively maintained, and has 794K weekly npm downloads.
+
+piexifjs (1.0.6) is a read/write library focused on JPEG/TIFF only -- no HEIC. The write capability is useful for editing EXIF but we don't need that.
+
+### Why client-side EXIF + server-side re-extraction (not just one or the other)
+
+Client-side extraction with exifr gives instant form pre-fill -- the user uploads a photo and immediately sees coordinates, datetime, and focal length populated. No round trip to the server.
+
+But we can't trust client-side values as the sole source. The browser environment is untrusted, and the EXIF data could be modified or fabricated before it reaches the server. The server re-extracts EXIF from the uploaded file bytes using Pillow's `getexif()` and uses those values as ground truth for the computation. Client-side values are a UX convenience; server-side values drive the engine.
+
+This also handles the case where a user edits a pre-filled field (e.g., corrects a GPS coordinate). The server accepts form fields alongside the file, uses manual overrides when provided, and falls back to EXIF data from the file when fields are empty.
+
+### Why SVG path animation instead of Canvas or CSS keyframes for the figure-8
+
+The analemma curve is a smooth path through 365 discrete points. SVG's `<path>` element with `stroke-dasharray` / `stroke-dashoffset` animation is purpose-built for this: you set `dasharray` to the total path length, then animate `dashoffset` from full length to zero. The path "draws itself" progressively.
+
+Svelte's built-in `draw` transition does exactly this with zero configuration -- just `<path transition:draw={{ duration: 2000 }} d={pathData} />`. No external animation library needed.
+
+Canvas would require manually drawing partial paths frame-by-frame with `requestAnimationFrame`, managing the animation loop, and losing the declarative reactivity that Svelte provides. CSS keyframes can animate `stroke-dashoffset`, but you need to know the path length at build time or compute it in JS -- Svelte's `draw` handles this automatically.
+
+GSAP is the most capable animation library (timeline sequencing, physics easing), but it's 27KB gzipped and its "free" license has commercial restrictions. For a single path animation, it's overkill.
+
+### Why the server needs a get_analemma_json() method
+
+ImageAnchorer currently only outputs rasterized overlays -- `overlay_analemma()` returns a PIL Image with the curve baked into the pixel data. For the web frontend to animate the curve, it needs the raw point data: pixel coordinates, dates, and solar altitude/azimuth for each point on the analemma.
+
+`generate_analemma_points()` already computes this internally and returns a list of dicts with `pixel_x`, `pixel_y`, `date`, `altitude`, `azimuth`. A new `get_analemma_json()` method would be a thin wrapper that calls `generate_analemma_points()` and returns the result as a JSON-serializable structure. The FastAPI endpoint would return both the static overlay image and this JSON in a multipart response (or two separate endpoints).
+
+### Deriving sensor dimensions from EXIF crop factor
+
+Most cameras write two focal length tags into EXIF: `FocalLength` (actual, e.g. 4.25mm) and `FocalLengthIn35mmFormat` (35mm equivalent, e.g. 26mm). The ratio gives the crop factor, which encodes the sensor size relative to 35mm full frame (36x24mm, diagonal 43.27mm).
+
+For 3:2 aspect sensors (DSLRs, mirrorless): `sensor_width = 36 / crop_factor`, `sensor_height = 24 / crop_factor`.
+
+For 4:3 aspect sensors (most smartphones, compacts): the diagonal is `43.27 / crop_factor`, then `width = diagonal * 4/5 = diagonal * 0.8`, `height = diagonal * 3/5 = diagonal * 0.6`. This comes from the Pythagorean relationship: if aspect is w:h, then `width = diagonal * w / sqrt(w^2 + h^2)`.
+
+The 3:2 vs 4:3 distinction matters: using the wrong formula introduces ~4% FOV error. We can detect the sensor's aspect ratio from `ImageWidth`/`ImageHeight` in EXIF (after accounting for orientation).
+
+Lensfun's database stores only `cropfactor`, not raw sensor dimensions or aspect ratio. So we'd still need the aspect ratio detection for accurate conversion.
+
+### Why LocationIQ over Google Places for geocoding
+
+Google Places Autocomplete is technically superior (better data, better typo handling, better POI coverage), but its Terms of Service require that autocomplete results be displayed on a Google Map or link to a Google Maps page. We don't want a map in our UI -- we just want lat/long coordinates from a city search. Using Google's data without showing their map violates the ToS.
+
+Same issue with Mapbox: their Geocoding API requires results to be shown on a Mapbox map. Their "Temporary Geocoding" product can't even store results.
+
+LocationIQ, Geoapify, and MapTiler all allow using geocoding results without a map display, with simple attribution requirements. LocationIQ has the most generous free tier at 5,000 requests/day.
+
+### Why 512 MB RAM isn't enough for the API backend
+
+The Python dependency stack for the Analemma engine has a large memory footprint at import time. Just importing the core libraries without doing any work consumes ~480-530 MB:
+
+- Python runtime: ~50 MB
+- numpy + scipy (imported modules + BLAS): ~100 MB
+- astropy + IERS data + coordinate frames: ~150 MB
+- JPL DE440 ephemeris (loaded on first calculation): ~100 MB
+- Pillow + an input image: ~50-100 MB
+- FastAPI + Uvicorn overhead: ~30 MB
+
+During active processing -- loading a large image, computing a year's solar positions, rendering the overlay -- peak RAM hits 700-900 MB. Any free/basic tier with 512 MB will either swap heavily (if swap exists) or OOM kill the process.
+
+The minimum comfortable tier is 1 GiB for a single-worker deployment with dependency trimming (drop matplotlib, pandas, plotly from the API). 2 GiB gives headroom for larger images and the possibility of 2 Uvicorn workers.
+
+### Path-based routing vs CORS for frontend-backend communication
+
+When the frontend and backend share a domain (e.g., `analemma.dev` serves the SPA, `analemma.dev/api/process` hits the backend), the browser treats all requests as same-origin. No CORS middleware needed. This is possible when both are deployed on the same platform with routing rules (DigitalOcean App Platform, or Heroku serving static files from FastAPI).
+
+When split across platforms (e.g., frontend on Vercel at `analemma.dev`, backend on DO at `api.analemma.dev`), the browser considers them different origins. The backend must include CORS headers allowing the frontend origin. In FastAPI this is one middleware call, but it's an extra thing to configure and debug.
+
+### Why the analemma overlay is (probably) a derivative work under CC BY-SA
+
+CC BY-SA 4.0 defines "Adapted Material" as material "derived from or based upon the Licensed Material and in which the Licensed Material is translated, altered, arranged, transformed, or otherwise modified in a manner requiring permission under the Copyright and Similar Rights."
+
+The CC FAQ says a modification rises to the level of adaptation when it's "based on the prior work but manifests sufficient new creativity to be copyrightable."
+
+The overlay adds a calculated figure-8 curve, date markers, and annotation to an existing photograph. The original photo is reproduced in full. The resulting combined image couldn't exist without the original. Under most copyright frameworks (especially U.S. law's low originality threshold), this creates a derivative.
+
+The counter-argument -- that the photo is just a "background" for data visualization, like pinning a chart on a map -- is plausible but weaker. The conservative and safer interpretation is: it's a derivative.
+
+Critical implication: this only affects **output images**, not the **code**. The code that produces derivatives isn't itself a derivative of the images, just like Photoshop isn't a derivative of every photo edited with it. MIT stays MIT. Only the output images with CC BY-SA inputs need to carry CC BY-SA 4.0.
+
+### Why the repository isn't "infected" by ShareAlike
+
+The repo is a collection (code + sample images), not an adaptation. The CC FAQ explicitly says collections can use any license while individual items retain their own licenses: "You may choose a license for the collection, however this does not change the license applicable to the original material." ShareAlike only triggers on adaptations, not collections.
+
+### Why FastAPI over Flask for a CPU-bound image processing API
+
+The conventional wisdom is "Flask is simpler, use it for small projects." That's true for trivial APIs, but our use case has specific requirements that tilt toward FastAPI:
+
+1. **File upload typing.** FastAPI's `UploadFile` parameter with `Form(...)` metadata fields gives us validated multipart parsing with zero boilerplate. Flask's `request.files` works but requires manual validation for every field.
+
+2. **Swagger UI for free.** During development, auto-generated docs at `/docs` let you test the upload endpoint from a browser without building a frontend. With Flask, you'd need to write curl commands or build a test page.
+
+3. **Async option available but not required.** For V1, use plain `def` handlers (FastAPI runs them in a threadpool automatically). If we later need async (cloud storage, external APIs), we don't need to restructure -- just change `def` to `async def`.
+
+4. **CPU-bound work in both frameworks.** Neither Flask nor FastAPI "solve" CPU-bound concurrency. Flask uses Gunicorn multiprocess workers; FastAPI uses Uvicorn multiprocess workers. Both give you N-workers = N-concurrent-computations. The frameworks are equivalent here.
+
+The overhead of FastAPI over Flask is one extra dependency (Pydantic) and slightly different syntax. The payoff is validation, documentation, and a cleaner async upgrade path.
+
+### Why not Celery/Redis for V1
+
+The Analemma computation takes 3-10 seconds. That's within normal HTTP timeout windows (browsers default to 60-120 seconds). Adding Celery means:
+- A Redis or RabbitMQ server to run and manage
+- Docker Compose goes from 1 container to 3
+- Result storage (where does the 10MB processed image live between completion and client fetch?)
+- A polling API on the client side
+
+None of this is justified until you're seeing sustained concurrent load that overwhelms the worker pool. With 4 Uvicorn workers on a 2-core machine, you can handle 4 simultaneous users. If user #5 shows up, they wait a few seconds in the Uvicorn connection queue. That's fine for moderate traffic.
+
+### Docker image size with scientific Python
+
+astropy + scipy + numpy + matplotlib + Pillow = ~270MB of Python packages before you count the JPL DE440 ephemeris (~100MB). The full stack pushes images past 1GB. Key mitigations:
+- Use `python:3.12-slim` (not alpine -- numpy/scipy wheels don't work on musl libc)
+- Multi-stage build to exclude build tools from runtime image
+- Pre-download ephemeris data during build so it doesn't happen at runtime
+- Drop pandas/plotly if the API doesn't need them (the notebook does, but the API doesn't)
+
+---
+
 ## Session 1
 
 ### Prompt 4 (2026-03-17)

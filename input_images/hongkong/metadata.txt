@@ -15,6 +15,11 @@ CAMERA_MAKE=Canon
 CAMERA_MODEL=Canon PowerShot G10
 LOCATION_NAME=Hong Kong harbor
 
+# License
+# Creative Commons Attribution-Share Alike 4.0 International
+# https://commons.wikimedia.org/wiki/File:Bright_light.JPG
+# "Bright light.JPG" by Kailanchoi is licensed under CC BY-SA 4.0.
+
 # --- REFERENCE DATA (NOT PARSED) ---
 # Additional EXIF metadata for reference/future enhancement:
 # Exposure: 1/1250 sec, f/8, ISO 80

@@ -17,6 +17,12 @@ CAMERA_MAKE=
 CAMERA_MODEL=
 LOCATION_NAME=
 
+# License
+# Creative Commons Attribution-Share Alike 4.0 International
+# https://commons.wikimedia.org/wiki/File:Waining_sun_dog_with_reflection_over_Brofjorden.jpg
+# "Waining sun dog with reflection over Brofjorden.jpg" by W.carter  is licensed under CC BY-SA 4.0.
+
+
 # --- REFERENCE DATA (NOT PARSED) ---
 # Additional notes, EXIF data, etc.
 # Everything below this line is ignored by the parser

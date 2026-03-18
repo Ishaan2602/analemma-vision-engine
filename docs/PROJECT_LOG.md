@@ -4,6 +4,255 @@ Most recent work at the top.
 
 ---
 
+## Session 3 -- started 2026-03-17
+
+### Prompt 9 (2026-03-17) -- Phase 3 setup execution
+
+Executed the remaining steps of Phase 3 from SETUP_INSTRUCTIONS.md. User had already completed steps 3.1-3.3 (SvelteKit project created with `npx sv create frontend`), but missed ESLint and Tailwind CSS during the interactive setup.
+
+**Fixes applied:**
+- Added Tailwind CSS via `npx sv add tailwindcss` (Vite plugin + layout.css configured automatically)
+- Manually installed ESLint with svelte + typescript plugins, created `eslint.config.js`, added `lint` and `format` scripts to package.json
+
+**Step 3.4 -- Backend created:**
+- `backend/` directory with `app.py` (FastAPI placeholder with CORS), `requirements.txt` (trimmed deps -- no matplotlib/pandas/plotly), `Dockerfile` (python:3.12-slim, ephemeris pre-download), `.dockerignore`
+- Engine copied into `backend/analemma/`
+- API scaffold: `api/routes.py`, `api/schemas.py`, `api/engine_wrapper.py` (placeholders for PLAN agent)
+
+**Step 3.5 -- GitHub Actions workflows:**
+- `.github/workflows/test.yml` -- engine tests on PR
+- `.github/workflows/deploy-backend.yml` -- DO App Platform deploy on push to backend/
+- `.github/workflows/deploy-frontend.yml` -- frontend build check on PR
+
+**Step 3.6 -- LICENSE and NOTICE:**
+- `LICENSE` -- MIT, copyright Ishaan2602
+- `NOTICE` -- full attribution for all 6 CC-licensed sample images + planned lensfun reference
+
+**Step 3.7 -- .gitignore updated:**
+- Added frontend entries (node_modules, .svelte-kit, build)
+- Added backend entries (__pycache__, .env)
+
+**Notes:**
+- The VS Code `.env` warning about Python terminal injection is irrelevant -- Vite reads `.env` files on its own via the `VITE_` prefix convention
+- doctl installed and authenticated via PowerShell (separate from git bash terminal)
+- LocationIQ token already set in `frontend/.env`
+
+**Next step:** User prompts the PLAN agent with FINALIZED_DECISIONS.md and the research directory to generate the implementation plan.
+
+### Prompt 8 (2026-03-17) -- Decisions finalized + setup instructions generated
+
+User reviewed all 15 decision questions from `DECISIONS_REQUIRED.md` and the additional considerations. All decisions locked in. Chose the recommended path for each question, with these specific overrides:
+
+- Q4: `.app` TLD (not `.dev`)
+- Q10: Day 1 Extended (JPEG + HEIC + PNG + WebP)
+- Q11: nigeria added to .gitignore alongside raghav/robert exclusions
+- Q15: Project name is "Analemma Vision"
+
+Additional considerations accepted: two-phase response (JSON fast, PNG on download), 30 MB upload limit, Dockerfile ephemeris pre-download, basic rate limiting (slowapi), helpful error messages, SimpleAnalytics, localStorage caching for geocoding and sensor lookups. Accessibility compliance not a V1 priority.
+
+**Files created:**
+- `reserach/research_web_deployment/FINALIZED_DECISIONS.md` -- all 15 answers + additional considerations in one reference file
+- `reserach/research_web_deployment/SETUP_INSTRUCTIONS.md` -- 6-phase step-by-step guide covering accounts, local tooling, repo restructuring, deployment setup, local dev workflow, and integration checklist
+
+**Changes made:**
+- `.gitignore` updated: added `input_images/nigeria/` and `output/nigeria_output/`
+
+**Next step:** User follows the setup instructions, then prompts the PLAN agent with the finalized decisions and full research directory to generate the implementation plan.
+
+### Prompt 7 (2026-03-17) -- Comprehensive web deployment research
+
+Full research sprint covering every aspect of deploying the analemma engine as a web application. This was a research-only prompt -- no code changes.
+
+**What was researched:**
+- Frontend frameworks (Svelte vs Vue vs React vs Astro vs Next.js vs vanilla)
+- Backend API frameworks (FastAPI vs Flask vs Django vs Starlette vs Litestar)
+- Deployment platforms with student pack credits (Vercel, DigitalOcean, Heroku, Fly.io, Render, AWS)
+- Geocoding APIs for location autocomplete (10 services compared)
+- Camera sensor size auto-detection (EXIF crop factor, lensfun DB, manual fallback)
+- EXIF extraction from HEIC and other formats
+- Image format compatibility (browser + server)
+- Analemma SVG animation approaches
+- Licensing analysis (MIT code + CC images, ShareAlike implications)
+- Project architecture and monorepo folder structure
+- Frontend design concepts and responsive layout
+- CI/CD pipelines and GitHub Actions workflows
+- Custom domain setup
+
+**Research directories created:**
+- `research_frontend_frameworks/` (4 files)
+- `research_backend_framework/` (5 files)
+- `research_deployment/` (6 files)
+- `research_web_app_apis/` (4 files)
+- `research_image_handling/` (4 files)
+- `research_licensing/` (6 files)
+- `research_web_deployment/` (4 files -- architecture, design, decisions, considerations)
+
+**Key recommendations from research:**
+- Svelte/SvelteKit for frontend (built-in `draw` transition for analemma animation)
+- FastAPI for backend (auto-generated docs, typed validation)
+- Vercel (frontend) + DigitalOcean (backend) for initial deployment, using student credits
+- LocationIQ for geocoding (5K req/day free, autocomplete, no map requirement)
+- Three-tier sensor detection: EXIF crop factor -> lensfun JSON -> manual
+- SVG path animation overlaid on the image, with JSON data from the backend
+- MIT license for code, CC licenses preserved per-image
+
+**Next step:** User answers the 15 decision questions in `research_web_deployment/DECISIONS_REQUIRED.md`. Those answers feed into setup instruction files, which the PLAN agent will use to build the full implementation plan.
+
+### Prompt 6 (2026-03-17) -- Image handling research (EXIF, formats, animation)
+
+Deep-dive research into three interconnected topics for the web application layer:
+
+1. **EXIF extraction from uploaded images (including HEIC)** -- compared JS libraries (exifr, exif-js, piexifjs) and Python libraries (Pillow, pyexiftool, ExifRead) for extracting GPS, focal length, sensor dimensions, and datetime from user uploads. exifr is the clear winner on the client side (fast, HEIC-native, tree-shakeable). On the server, Pillow's built-in `getexif()` + `pillow-heif` for HEIC is sufficient. Architecture: extract EXIF client-side with exifr for instant form pre-fill, send original file to server, server re-extracts as ground truth.
+
+2. **Image format compatibility** -- built a format matrix covering browser display, Pillow processing, and EXIF availability for JPEG, PNG, HEIC/HEIF, WebP, TIFF, BMP, and RAW. V1 must-support: JPEG plus HEIC (covers 90%+ of phone uploads). Should-support: PNG, WebP, HEIF. Skip: TIFF, BMP, RAW. heic2any handles client-side HEIC-to-JPEG conversion for preview; server uses pillow-heif to process originals natively.
+
+3. **Analemma animation** -- compared SVG path animation, HTML5 Canvas, CSS keyframes, and JS animation libraries (GSAP, Motion One, Framer Motion, Lottie). SVG path with Svelte's built-in `draw` transition is the top pick -- zero dependencies, declarative, and perfectly suited for the figure-8 curve. Backend needs a new `get_analemma_json()` method on ImageAnchorer to return point data as JSON instead of only rendering to a static image.
+
+New dependencies identified: exifr (client), heic2any (client), pillow-heif (server).
+
+Files created:
+- `research_image_handling/overview.md`
+- `research_image_handling/exif_extraction.md`
+- `research_image_handling/image_format_compatibility.md`
+- `research_image_handling/analemma_animation.md`
+
+### Prompt 5 (2026-03-17) -- Geocoding API + Camera Sensor Size research
+
+Researched two API integration points for the web app:
+
+**Geocoding / Place Autocomplete**: Compared 10 services (Google Places, Mapbox, Nominatim, Photon, Geoapify, LocationIQ, MapTiler, Pelias, Algolia Places, PlaceKit) across free tier, autocomplete support, accuracy, frontend widgets, ToS/attribution, latency, and worldwide coverage.
+
+Key findings:
+- Google and Mapbox both require results displayed on their proprietary maps (ToS problem for us)
+- Algolia Places is dead (sunset May 2022)
+- Nominatim has no autocomplete; Photon/Pelias are too heavy to self-host for a hobby project
+- LocationIQ wins for V1: 5K req/day free, autocomplete endpoint, no map requirement, worldwide OSM data
+- Geoapify and MapTiler are solid alternatives
+
+**Camera Sensor Size**: Evaluated 7 approaches -- static JSON, lensfun database, ExifTool, browser EXIF (exifr), online databases (digicamdb), crop factor math from EXIF, crowdsourced DB.
+
+Key findings:
+- exifr (npm, 794K weekly downloads, MIT) can extract Make, Model, FocalLength, FocalLengthIn35mmFormat client-side in ~1ms
+- Crop factor = FocalLengthIn35mmFormat / FocalLength, then sensor_width = 36/cropfactor (for 3:2 sensors)
+- Lensfun's XML database (CC BY-SA 3.0) stores cropfactor per camera -- can be parsed at build time into a JSON lookup
+- Recommended hybrid: browser EXIF + crop factor math (80% coverage) -> lensfun JSON fallback (10-15%) -> manual entry (remainder)
+
+Files created:
+- `research_web_app_apis/overview.md`
+- `research_web_app_apis/geocoding_comparison.md`
+- `research_web_app_apis/sensor_size_approaches.md`
+- `research_web_app_apis/recommendations.md`
+
+### Prompt 4 (2026-03-17) -- Deployment platform research
+
+Comprehensive research into deployment strategies for a Python backend (FastAPI, Docker, ~1GB image) + JS frontend (Svelte/Vue SPA) web app, with focus on GitHub Student Developer Pack credits.
+
+Platforms evaluated:
+- Frontend: Vercel, Netlify, GitHub Pages, Render static, DigitalOcean App Platform
+- Backend: Render, Heroku, DigitalOcean, Fly.io, Railway
+- Combo: Render (both), DO App Platform (both), Heroku (both)
+
+Key findings:
+- 512 MB RAM tiers (Render Free, Heroku Basic) are risky for our dep stack -- astropy+scipy+numpy alone use ~300-400 MB
+- DigitalOcean's $200 student credit is the best value: 8-12 months of comfortable hosting (1-2 GiB RAM)
+- Heroku's $13/mo credit lasts 24 months but only covers 512 MB dynos
+- Vercel free tier is the clear winner for frontend hosting (zero-config, CDN, preview deploys)
+- Fly.io is the best long-term backend option after student credits expire (auto-stop, $5-11/mo)
+- Monorepo structure recommended (frontend/ + backend/ + .github/workflows/)
+- Name.com `.dev` domain recommended over Namecheap `.me`
+
+Top recommendation: Vercel (frontend, free forever) + DigitalOcean App Platform (backend, $25/mo covered by $200 credit) + `analemma.dev` from Name.com. Migrate backend to Fly.io when credit runs out.
+
+Files created:
+- `research_deployment/overview.md`
+- `research_deployment/frontend_hosting.md`
+- `research_deployment/backend_hosting.md`
+- `research_deployment/combo_hosting.md`
+- `research_deployment/ci_cd_and_repo_structure.md`
+- `research_deployment/recommendations.md`
+
+### Prompt 3 (2026-03-17) -- Licensing research (MIT code + CC images)
+
+Researched licensing considerations for releasing the project under MIT while including CC-licensed Wikimedia Commons images. Central question: does the analemma overlay create a "derivative work" under CC BY-SA 4.0, and if so, what are the obligations?
+
+Key findings:
+- MIT code + CC images coexist fine in multi-license repos. Different licenses apply to different files. No conflict.
+- The analemma overlay almost certainly constitutes an "adaptation" (derivative work) under CC definitions. The output image is "based on" the original and adds new visual elements requiring copyright permission.
+- For CC BY-SA inputs, the overlaid output must be labeled CC BY-SA 4.0. This does NOT affect the code license -- MIT stays MIT.
+- For CC BY inputs (cold_canada, sharjah_sands), the output just needs attribution and a modification note. No ShareAlike.
+- For CC0 (hunan), no obligations at all.
+- The unlicensed personal photos (nigeria, raghav*, robert_hawaii) are the biggest risk -- need explicit permission or removal from public repo.
+- Web display = distribution under CC terms. Attribution must be visible where images appear.
+- A basic Terms of Service is needed for the web app covering user uploads, content ownership, and storage policy.
+- The repo as a whole is a "collection" (not an adaptation), so MIT can cover the collection while each image retains its own license.
+
+Files created:
+- `research_licensing/overview.md`
+- `research_licensing/sharealike_analysis.md`
+- `research_licensing/license_details.md`
+- `research_licensing/attribution_guide.md`
+- `research_licensing/repo_structure.md`
+- `research_licensing/web_display_and_uploads.md`
+
+### Prompt 2 (2026-03-17) -- Frontend framework research
+
+Detailed comparison of six frontend approaches for the Analemma Engine web UI: React+Vite, Next.js, Vue 3+Vite, Svelte/SvelteKit, Vanilla JS+Alpine.js/HTMX, and Astro. Evaluated each against learning curve, bundle size, image upload handling, mobile responsiveness, animation capabilities (critical for the animated figure-8 visualization), ecosystem breadth, deployment, and community.
+
+Key findings:
+- Svelte/SvelteKit is the top recommendation -- built-in `draw` transition is tailor-made for SVG path animation of the analemma curve, smallest bundles, lowest learning curve
+- Vue 3 is the strong runner-up -- gentler than React, larger ecosystem than Svelte, VueUse composables are very useful
+- React is the safe default but carries unnecessary complexity for this single-page tool
+- Next.js is overkill (SSR/server components wasted on a static SPA)
+- Alpine.js/HTMX lacks animation capabilities needed for the figure-8 visualization
+- Astro is wrong tool -- designed for content sites, not interactive tools
+- Tailwind CSS recommended for styling regardless of framework choice
+- Nominatim (OpenStreetMap) recommended for free geocoding autocomplete
+- exifr recommended for EXIF parsing; heic2any for HEIC conversion
+
+Files created:
+- `research_frontend_frameworks/overview.md`
+- `research_frontend_frameworks/detailed_comparison.md`
+- `research_frontend_frameworks/recommendations.md`
+- `research_frontend_frameworks/ecosystem_notes.md`
+
+### Prompt 1 (2026-03-17) -- Backend framework research
+
+Conducted a detailed comparison of five Python web frameworks (FastAPI, Flask, Django, Starlette, Litestar) for serving the Analemma Engine as a web API. Research covered setup complexity, file upload handling, async/CPU-bound concurrency patterns, binary image responses, CORS, deployment, Docker containerization with heavy scientific packages, and task queue architecture.
+
+Key findings:
+- FastAPI is the recommended framework -- good file upload handling, auto-generated Swagger docs, Pydantic validation, and a clear path for CPU-bound work via ProcessPoolExecutor
+- For V1, simple Uvicorn multiprocess workers (--workers 4) are sufficient -- no Celery/Redis needed
+- Docker images will be 800MB-1GB due to astropy/scipy/numpy; use python:3.12-slim with multi-stage builds
+- Render or Fly.io are the best deployment targets for this project size
+- pandas, plotly, and possibly matplotlib can be dropped from the API requirements to save ~115MB
+
+Files created:
+- `research_backend_framework/overview.md`
+- `research_backend_framework/framework_comparison.md`
+- `research_backend_framework/concurrency_and_task_queues.md`
+- `research_backend_framework/docker_and_deployment.md`
+- `research_backend_framework/recommendation.md`
+
+---
+
+## Session 2 -- started 2026-03-17
+
+### Prompt 1 (2026-03-17) -- Research agent creation
+
+Created a general-purpose Research agent (`research.agent.md`) at the user profile level so it's available across all workspaces. The agent's job: investigate implementation technologies, compare approaches, and produce structured markdown research in `research_{topic}/` directories at the workspace root. It uses web search, Context7 MCP, and codebase reading, then writes findings into separate .md files per sub-topic.
+
+Key design choices:
+- User-level placement for cross-project reuse
+- Tools: read, search, edit, web, todo, agent (no terminal -- research only)
+- Can edit project docs (README, implementation notes) but never source code
+- Moderate question frequency -- asks user at meaningful decision forks, not every minor choice
+- Falls back to plan-agent behavior for non-research tasks
+
+Files created:
+- `%APPDATA%/Code/User/prompts/research.agent.md`
+
+---
+
 ## Session 1 -- started 2026-03-15
 
 ### Prompt 6 (2026-03-17) -- CV simplification
