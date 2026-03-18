@@ -223,7 +223,8 @@ async def api_charts(
         logger.exception("Unexpected error in /api/charts")
         raise HTTPException(
             status_code=500,
-            detail="An unexpected error occurred while generating charts.",
+            detail="An unexpected error occurred while generating charts. "
+                   "The server may need to be redeployed.",
         )
 
 

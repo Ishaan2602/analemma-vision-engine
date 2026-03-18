@@ -13,9 +13,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Writable dir for matplotlib font cache (avoids first-request failures)
+ENV MPLCONFIGDIR=/tmp/matplotlib
+
 # Pre-download the JPL DE440 ephemeris (~17 MB) so it doesn't
 # happen on the first request or on every cold start
 RUN python -c "from astropy.coordinates import get_sun; from astropy.time import Time; get_sun(Time('2025-01-01'))"
+
+# Pre-build matplotlib font cache so the first /api/charts call doesn't stall
+RUN python -c "import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; fig, ax = plt.subplots(); plt.close(fig); print('matplotlib OK')"
 
 COPY . .
 

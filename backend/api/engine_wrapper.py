@@ -156,8 +156,8 @@ def _run_charts(latitude: float, longitude: float,
     import matplotlib.pyplot as plt
 
     from analemma.calculator import AnalemmaCalculator
-    from analemma.sky_mapper import SkyMapper
     from analemma.plotter import AnalemmaPlotter
+    from analemma.sky_mapper import SkyMapper
 
     calc = AnalemmaCalculator(mode='high-precision')
     calc_data = calc.calculate_year(hour=hour, minute=minute)
