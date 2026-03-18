@@ -50,6 +50,11 @@ class SampleImage(BaseModel):
     author: str
 
 
+class ChartsResponse(BaseModel):
+    sky_chart: str
+    figure8: str
+
+
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None

@@ -6,8 +6,8 @@ from fastapi.responses import Response
 
 logger = logging.getLogger(__name__)
 
-from .engine_wrapper import analyze_image, render_overlay
-from .schemas import AnalyzeResponse, SampleImage
+from .engine_wrapper import analyze_image, generate_charts, render_overlay
+from .schemas import AnalyzeResponse, ChartsResponse, SampleImage
 
 router = APIRouter(prefix="/api")
 
@@ -201,6 +201,27 @@ async def api_render(
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred while rendering the overlay.",
+        )
+
+
+@router.post("/charts", response_model=ChartsResponse)
+async def api_charts(
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    datetime_str: str = Form(...),
+):
+    try:
+        result = await generate_charts(
+            latitude=latitude,
+            longitude=longitude,
+            datetime_str=datetime_str,
+        )
+        return result
+    except Exception:
+        logger.exception("Unexpected error in /api/charts")
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred while generating charts.",
         )
 
 

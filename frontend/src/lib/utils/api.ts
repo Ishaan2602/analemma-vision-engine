@@ -74,3 +74,28 @@ export async function fetchSamples(): Promise<SampleImage[]> {
 	if (!res.ok) return [];
 	return res.json();
 }
+
+export interface ChartsResponse {
+	sky_chart: string;
+	figure8: string;
+}
+
+export async function fetchCharts(
+	latitude: string,
+	longitude: string,
+	datetime_str: string
+): Promise<ChartsResponse> {
+	const fd = new FormData();
+	fd.append('latitude', latitude);
+	fd.append('longitude', longitude);
+	fd.append('datetime_str', datetime_str);
+	const res = await fetch(`${API_URL}/api/charts`, {
+		method: 'POST',
+		body: fd
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({ detail: 'Chart generation failed' }));
+		throw new Error(err.detail || 'Chart generation failed');
+	}
+	return res.json();
+}

@@ -145,6 +145,59 @@ async def analyze_image(file_bytes: bytes, filename: str,
             os.unlink(tmp_path)
 
 
+def _run_charts(latitude: float, longitude: float,
+                hour: int, minute: int) -> dict:
+    """Generate sky chart and figure-8 as base64 PNGs."""
+    import base64
+    import io
+
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    from analemma.calculator import AnalemmaCalculator
+    from analemma.sky_mapper import SkyMapper
+    from analemma.plotter import AnalemmaPlotter
+
+    calc = AnalemmaCalculator(mode='high-precision')
+    calc_data = calc.calculate_year(hour=hour, minute=minute)
+
+    sky = SkyMapper(latitude=latitude, longitude=longitude)
+    sky_data = sky.map_to_horizon(calc_data)
+
+    plotter = AnalemmaPlotter(figure_size=(8, 6))
+
+    # Sky chart
+    fig_sky = plotter.plot_analemma(sky_data,
+        title=f'Sky Chart -- {latitude:.1f}, {longitude:.1f} at {hour:02d}:{minute:02d}')
+    buf_sky = io.BytesIO()
+    fig_sky.savefig(buf_sky, format='png', dpi=150, bbox_inches='tight')
+    plt.close(fig_sky)
+    buf_sky.seek(0)
+    sky_b64 = base64.b64encode(buf_sky.read()).decode('ascii')
+
+    # Figure-8
+    fig_f8 = plotter.plot_figure8(calc_data,
+        title='Analemma Figure-8 (EoT vs Declination)')
+    buf_f8 = io.BytesIO()
+    fig_f8.savefig(buf_f8, format='png', dpi=150, bbox_inches='tight')
+    plt.close(fig_f8)
+    buf_f8.seek(0)
+    f8_b64 = base64.b64encode(buf_f8.read()).decode('ascii')
+
+    return {'sky_chart': sky_b64, 'figure8': f8_b64}
+
+
+async def generate_charts(latitude: float, longitude: float,
+                          datetime_str: str) -> dict:
+    anchor_dt = datetime.fromisoformat(datetime_str)
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        _executor, _run_charts,
+        latitude, longitude, anchor_dt.hour, anchor_dt.minute,
+    )
+
+
 async def render_overlay(file_bytes: bytes, filename: str,
                          latitude: float, longitude: float,
                          datetime_str: str, focal_length_mm: float,

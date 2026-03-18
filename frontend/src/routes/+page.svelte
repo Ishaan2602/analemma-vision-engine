@@ -2,6 +2,8 @@
 	import ImageUpload from '$lib/components/ImageUpload.svelte';
 	import MetadataForm from '$lib/components/MetadataForm.svelte';
 	import AnalemmaViewer from '$lib/components/AnalemmaViewer.svelte';
+	import ChartViewer from '$lib/components/ChartViewer.svelte';
+	import SunPicker from '$lib/components/SunPicker.svelte';
 	import SampleGallery from '$lib/components/SampleGallery.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
 	import type { ExifData } from '$lib/utils/exif';
@@ -17,6 +19,8 @@
 	let errorMsg = $state('');
 	let imageWidth = $state(0);
 	let imageHeight = $state(0);
+	let showSunPicker = $state(false);
+	let detectionFailed = $state(false);
 
 	let metadata: MetadataFields = $state({
 		latitude: '',
@@ -45,6 +49,7 @@
 		exifData = exif;
 		analemmaResult = null;
 		errorMsg = '';
+		detectionFailed = false;
 
 		// Get image dimensions from the preview
 		const img = new Image();
@@ -53,6 +58,16 @@
 			imageHeight = img.naturalHeight;
 		};
 		img.src = url;
+	}
+
+	function onSunPickerConfirm(x: number, y: number) {
+		metadata.sunX = String(Math.round(x));
+		metadata.sunY = String(Math.round(y));
+		showSunPicker = false;
+	}
+
+	function onSunPickerCancel() {
+		showSunPicker = false;
 	}
 
 	function buildFormData(): FormData | null {
@@ -72,6 +87,7 @@
 
 	async function generate() {
 		errorMsg = '';
+		detectionFailed = false;
 		const fd = buildFormData();
 		if (!fd) return;
 
@@ -79,7 +95,13 @@
 		try {
 			analemmaResult = await analyzeImage(fd);
 		} catch (err) {
-			errorMsg = err instanceof Error ? err.message : 'Analysis failed';
+			const msg = err instanceof Error ? err.message : 'Analysis failed';
+			if (msg.toLowerCase().includes('sun') && msg.toLowerCase().includes('detect')) {
+				detectionFailed = true;
+				errorMsg = 'Could not auto-detect the sun. Please select its position manually using the form below.';
+			} else {
+				errorMsg = msg;
+			}
 			analemmaResult = null;
 		} finally {
 			isAnalyzing = false;
@@ -160,6 +182,7 @@
 		<div class="lg:w-3/5 min-w-0">
 			{#if analemmaResult && previewUrl}
 				<AnalemmaViewer {previewUrl} analemmaData={analemmaResult} />
+				<ChartViewer latitude={metadata.latitude} longitude={metadata.longitude} datetime={metadata.datetime} />
 			{:else if isAnalyzing}
 				<div class="relative">
 					{#if previewUrl}
@@ -236,7 +259,7 @@
 			<!-- Metadata form -->
 			<div class="bg-slate-800/50 rounded-xl border border-slate-700 p-5">
 				<h2 class="text-sm font-semibold text-slate-200 mb-4">Photo Metadata</h2>
-				<MetadataForm {exifData} {imageWidth} {imageHeight} bind:metadata />
+				<MetadataForm {exifData} {imageWidth} {imageHeight} bind:metadata {previewUrl} {detectionFailed} onRequestSunPicker={() => { showSunPicker = true; }} />
 			</div>
 
 			<!-- Generate button -->
@@ -276,3 +299,7 @@
 	<!-- Sample Gallery -->
 	<SampleGallery {onSampleSelected} />
 </div>
+
+{#if showSunPicker && previewUrl}
+	<SunPicker {previewUrl} {imageWidth} {imageHeight} onConfirm={onSunPickerConfirm} onCancel={onSunPickerCancel} />
+{/if}
