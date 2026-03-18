@@ -115,6 +115,33 @@ Coordinates accept multiple formats: `40.1`, `-88.2`, `40.1N`, `88.2W`, `8 48 26
 
 Timezone is auto-detected from GPS coordinates using the IANA database (`timezonefinder` + `zoneinfo`). DST is handled correctly based on the photo's datetime. You can override it with `TIMEZONE_OFFSET=-10` in metadata if needed.
 
+## Local testing (web app)
+
+To run the web app locally instead of using analemmavision.app:
+
+**Backend** (requires Python 3.12+):
+
+```bash
+cd backend
+pip install -r requirements.txt
+python -c "from astropy.coordinates import solar_system_ephemeris; solar_system_ephemeris.set('jpl')"  # one-time ephemeris download
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+The API will be at `http://localhost:8000`. Test with `curl http://localhost:8000/api/health`.
+
+**Frontend** (requires Node 18+):
+
+```bash
+cd frontend
+npm install
+VITE_API_URL=http://localhost:8000 npm run dev
+```
+
+On Windows (PowerShell): `$env:VITE_API_URL="http://localhost:8000"; npm run dev`
+
+Open `http://localhost:5173` in the browser. The frontend talks to your local backend instead of the production API.
+
 ## Troubleshooting
 
 If you get import errors, make sure you're running from the project root or add it to your path:

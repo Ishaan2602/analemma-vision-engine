@@ -6,6 +6,26 @@ Most recent work at the top.
 
 ## Session 4 -- started 2026-03-18
 
+### Prompt 4 (2026-03-18) -- Fix sample rendering, SVG styling, mobile save
+
+User tested the live app and reported 6 issues. Investigation, planning, and implementation all done in one pass.
+
+**Root causes found:**
+1. Wrong analemma for hongkong -- thumbnail was generated without EXIF transpose, producing a 400x300 landscape image from a 2592x3456 portrait original. Sun auto-detection on the wrong-orientation compressed JPEG picked entirely different pixels.
+2. Wrong analemma for other samples -- 400px compressed thumbnails caused brightest-pixel detection to drift vs. full-res originals. All 6 samples affected to varying degrees.
+3. Connecting line across image -- single continuous SVG path connected all in-bounds points chronologically. When the analemma exits bounds and re-enters elsewhere, the path drew a diagonal line across the image.
+4. Low-quality sample images -- 400px wide, JPEG quality 85.
+5. Lines/dots too thick in SVG overlay.
+6. raghav2 wrong analemma -- metadata has 35mm-equivalent focal length (15mm) instead of actual (2.8mm). Not an app bug; requires correct metadata.
+
+**Fixes applied:**
+- `scripts/generate_thumbnails.py` -- EXIF transpose before resize, 1200px wide (was 400px), quality 90.
+- Regenerated all 6 thumbnails. Hongkong now correctly 1200x1600 portrait.
+- Pre-computed sun pixel positions from full-res originals, scaled to 1200px coords, stored in sample metadata on both frontend (`samples.ts`) and backend (`routes.py`, `schemas.py`).
+- `AnalemmaViewer.svelte` -- SVG path now uses gap detection (median spacing * 4 threshold) to break into separate segments at discontinuities.
+- Reduced dot radius (2-5px, was 3-8), stroke width (1-2px, was 2+), anchor/label sizing.
+- Added client-side Save button: renders image+SVG to canvas, exports PNG. Touch devices also open in new tab for long-press save.
+
 ### Prompt 3 (2026-03-18) -- Fix matplotlib import error
 
 Backend was still 500ing after the ThreadPoolExecutor fix. The new logging revealed `ModuleNotFoundError: No module named 'matplotlib'`. The import chain was: `image_anchor.py` -> `analemma/__init__.py` -> `plotter.py` -> `import matplotlib`. Two fixes: removed `AnalemmaPlotter` from the backend `__init__.py` (API never uses it), and made the `import matplotlib` in `image_anchor.py` lazy (inside `create_composite_plot()`, which the API also never calls). Verified locally that the import chain works clean.
