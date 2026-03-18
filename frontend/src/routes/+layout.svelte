@@ -16,7 +16,7 @@
 				</p>
 			</div>
 			<a
-				href="https://github.com/eluru/analemma_project"
+				href="https://github.com/Ishaan2602/analemma-vision-engine"
 				target="_blank"
 				rel="noopener noreferrer"
 				class="text-slate-400 hover:text-slate-200 transition-colors"

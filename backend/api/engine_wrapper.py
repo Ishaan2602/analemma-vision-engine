@@ -1,14 +1,14 @@
 import asyncio
 import os
 import tempfile
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import pillow_heif
 
 pillow_heif.register_heif_opener()
 
-_executor = ProcessPoolExecutor(max_workers=2)
+_executor = ThreadPoolExecutor(max_workers=2)
 
 
 def _run_analyze(tmp_path: str, latitude: float, longitude: float,

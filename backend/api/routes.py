@@ -1,7 +1,10 @@
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 from fastapi.responses import Response
+
+logger = logging.getLogger(__name__)
 
 from .engine_wrapper import analyze_image, render_overlay
 from .schemas import AnalyzeResponse, SampleImage
@@ -137,6 +140,7 @@ async def api_analyze(
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:
+        logger.exception("Unexpected error in /api/analyze")
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred while processing your image.",
@@ -181,6 +185,7 @@ async def api_render(
     except (ValueError, RuntimeError) as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:
+        logger.exception("Unexpected error in /api/render")
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred while rendering the overlay.",
@@ -190,3 +195,8 @@ async def api_render(
 @router.get("/samples", response_model=list[SampleImage])
 async def api_samples():
     return SAMPLE_IMAGES
+
+
+@router.get("/health")
+async def api_health():
+    return {"status": "ok"}
