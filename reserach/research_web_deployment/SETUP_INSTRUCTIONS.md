@@ -463,32 +463,126 @@ Note the app URL that DO gives you (something like `analemma-backend-xxxxx.ondig
 
 ### 4.3 Configure DNS
 
-In your Name.com dashboard for your `.app` domain:
+**Vercel (frontend -- analemmavision.app):**
 
-| Record Type | Host | Value | TTL |
-|---|---|---|---|
-| CNAME | `@` (or blank) | `cname.vercel-dns.com` | 300 |
-| CNAME | `api` | `<your-do-app-url>.ondigitalocean.app` | 300 |
+1. In the Vercel dashboard, go to your project > Settings > Domains
+2. Add `analemmavision.app` as a custom domain
+3. Vercel will show you the DNS records you need. For an apex domain (no `www`), it'll typically ask for either:
+   - An **A record** pointing to Vercel's IP (76.76.21.21), or
+   - A **CNAME** to `cname.vercel-dns.com` (only works if your DNS provider supports CNAME flattening at the apex)
+4. Go to your **Name.com** dashboard > DNS Records for `analemmavision.app`
+5. Add the record Vercel requested (A record is the safer choice for apex domains)
+6. Back in Vercel, click "Verify" -- it will check DNS and auto-provision an SSL certificate
 
-Then:
+**DigitalOcean (backend -- api.analemmavision.app):**
 
-1. In Vercel project settings > Domains: add `analemmavision.app`
-2. In DO App Platform settings > Domains: add `api.analemmavision.app`
-3. Both platforms auto-provision SSL certificates
+1. In the DO App Platform dashboard, go to your app > Settings > Domains
+2. Click "Add Domain"
+3. Enter `api.analemmavision.app`
+4. Choose **"You manage your domain"** (Option 2). DO doesn't need to be your nameserver -- your domain stays on Name.com.
+5. DO will show you a CNAME target (something like `<your-app-slug>.ondigitalocean.app`)
+6. Go to **Name.com** dashboard > DNS Records
+7. Add a **CNAME record**:
+   - Host: `api`
+   - Value: the CNAME target DO showed you
+   - TTL: 300 (or default)
+8. Back in DO, click "Verify" or wait -- DO will detect the CNAME and provision SSL automatically
 
-DNS propagation takes 5-60 minutes. After that:
-- `https://analemmavision.app` serves the frontend
-- `https://api.analemmavision.app` serves the backend
+**Verification:**
 
-### 4.4 Update Environment Variables
+DNS propagation usually takes 5-60 minutes. You can check progress:
 
-Once DNS is live, update the Vercel environment variable:
-- `VITE_API_URL` = `https://api.analemmavision.app`
+```bash
+# Check if the records are resolving (run in git bash or any terminal)
+nslookup analemmavision.app
+nslookup api.analemmavision.app
+```
 
-Update the backend CORS config to allow the production frontend domain:
-- `ALLOWED_ORIGINS` = `https://analemmavision.app`
+Once propagated:
+- `https://analemmavision.app` should show your SvelteKit default page
+- `https://api.analemmavision.app/health` should return `{"status":"ok"}`
 
-Redeploy both after updating.
+If either shows a certificate error, wait a few more minutes -- SSL provisioning happens after DNS resolves.
+
+### 4.4 Update Backend CORS for Production
+
+The backend's `app.py` currently only allows `http://localhost:5173` (local dev). It needs to also allow the production frontend domain. Update `backend/app.py`:
+
+Change the CORS `allow_origins` to read from an environment variable so it works in both local dev and production:
+
+```python
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(title="Analemma Vision API")
+
+# In development: defaults to localhost
+# In production: set ALLOWED_ORIGINS=https://analemmavision.app on DO
+allowed_origins = os.environ.get(
+    "ALLOWED_ORIGINS", "http://localhost:5173"
+).split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_methods=["POST", "GET"],
+    allow_headers=["*"],
+)
+```
+
+Then verify the DO environment variable:
+1. Go to DO App Platform > your app > Settings > App-Level Environment Variables
+2. Confirm that `ALLOWED_ORIGINS` is set to `https://analemmavision.app`
+3. If you changed `app.py`, push to `main` -- DO will auto-redeploy from the `backend/` path
+
+### 4.5 Verify the Vercel Environment Variables
+
+1. Go to Vercel > your project > Settings > Environment Variables
+2. Confirm these are set:
+   - `VITE_API_URL` = `https://api.analemmavision.app`
+   - `VITE_LOCATIONIQ_TOKEN` = your LocationIQ token (the `pk.xxx` value)
+3. These should be set for the **Production** environment (and optionally Preview/Development)
+4. Your local `frontend/.env` keeps `VITE_API_URL=http://localhost:8000` -- that's correct. Vite uses the local file during `npm run dev`, and Vercel's env vars during production builds. No conflict.
+
+If you change any Vercel env var after the initial deploy, you need to **redeploy** for the change to take effect (Vercel > Deployments > click the three dots on the latest deployment > Redeploy).
+
+### 4.6 End-to-End Smoke Test
+
+Once DNS is propagated and both services are up:
+
+1. **Frontend**: Visit `https://analemmavision.app` in your browser. You should see the SvelteKit default page. Open the browser console (F12 > Console) and check for errors -- there shouldn't be any.
+
+2. **Backend health check**: Visit `https://api.analemmavision.app/health` in your browser. You should see:
+   ```json
+   {"status": "ok"}
+   ```
+
+3. **CORS check**: Open the browser console on your frontend page and run:
+   ```javascript
+   fetch('https://api.analemmavision.app/health')
+     .then(r => r.json())
+     .then(d => console.log(d))
+     .catch(e => console.error(e))
+   ```
+   If CORS is configured correctly, you'll see `{status: "ok"}` logged. If you see a CORS error, double-check the `ALLOWED_ORIGINS` env var on DO matches your frontend domain exactly (including `https://`, no trailing slash).
+
+4. **Swagger UI**: Visit `https://api.analemmavision.app/docs` -- you should see FastAPI's auto-generated Swagger documentation page with the `/health` endpoint listed.
+
+### 4.7 Set Up GitHub Actions Secrets
+
+The deploy-backend workflow needs two secrets to trigger DO deployments from GitHub Actions:
+
+1. Go to your GitHub repo > Settings > Secrets and variables > Actions
+2. Add these repository secrets:
+   - **`DIGITALOCEAN_ACCESS_TOKEN`**: Your DigitalOcean API token (the same one you used with `doctl auth init`). If you don't have it saved, generate a new one at DO > API > Tokens.
+   - **`DO_APP_ID`**: Your app's ID on DO App Platform. Find it by running in your PowerShell (where doctl is configured):
+     ```powershell
+     doctl apps list --format ID,Spec.Name
+     ```
+     Copy the ID (a UUID like `a1b2c3d4-...`).
+
+3. To verify, push any small change to a file in `backend/` (like adding a comment to `app.py`). Watch the Actions tab on GitHub -- the "Deploy Backend" workflow should trigger and succeed.
 
 ---
 
@@ -496,15 +590,19 @@ Redeploy both after updating.
 
 Once everything is scaffolded, this is how you work locally day-to-day.
 
-### Run the frontend dev server
+### 5.1 Run the frontend dev server
 
 ```bash
 cd frontend
 npm run dev
 # Runs at http://localhost:5173
+# Hot-reloads on file changes
+# Uses VITE_API_URL=http://localhost:8000 from frontend/.env
 ```
 
-### Run the backend dev server
+### 5.2 Run the backend dev server
+
+You need a separate terminal for this (open a new git bash tab or use the VS Code terminal split).
 
 ```bash
 cd backend
@@ -512,22 +610,50 @@ pip install -r requirements.txt   # First time only
 uvicorn app:app --reload --port 8000
 # Runs at http://localhost:8000
 # Swagger UI at http://localhost:8000/docs
+# --reload watches for file changes and restarts automatically
 ```
 
-### Test the backend Docker image locally
+With both running, the frontend at :5173 talks to the backend at :8000 locally. The CORS config allows `http://localhost:5173` by default.
+
+### 5.3 Test the backend Docker image locally
+
+Before pushing a Dockerfile change, verify it builds and runs:
 
 ```bash
 cd backend
 docker build -t analemma-api .
 docker run -p 8000:8000 analemma-api
-# http://localhost:8000/docs for Swagger
+# Visit http://localhost:8000/docs for Swagger
+# Ctrl+C to stop the container
 ```
 
-### Run engine tests
+The first build will be slow (~5-10 minutes) because it downloads the ephemeris and installs scientific packages. Subsequent builds are fast thanks to Docker layer caching.
+
+### 5.4 Run engine tests
+
+From the project root:
 
 ```bash
 pytest tests/
 ```
+
+### 5.5 Git workflow
+
+The typical flow for making changes:
+
+```bash
+# 1. Make changes to frontend/ and/or backend/
+# 2. Test locally (npm run dev / uvicorn)
+# 3. Commit and push
+git add .
+git commit -m "description of changes"
+git push origin main
+```
+
+On push to `main`:
+- Changes in `frontend/` trigger a Vercel auto-deploy (instant, no GitHub Action needed)
+- Changes in `backend/` trigger the GitHub Action which calls `doctl apps create-deployment`
+- Changes in `tests/` or root Python files don't trigger any deploy
 
 ---
 
