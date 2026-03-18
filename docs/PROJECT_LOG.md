@@ -6,6 +6,26 @@ Most recent work at the top.
 
 ## Session 4 -- started 2026-03-18
 
+### Prompt 5 (2026-03-18) -- Feature batch: chart viewer, sun picker, info pages
+
+Implemented three major features that were planned at the end of Prompt 4.
+
+**Feature 1 -- Sky Chart & Figure-8 Viewer:**
+- Backend: new `POST /api/charts` endpoint in routes.py that takes lat/lon/datetime and returns base64-encoded PNG sky chart and figure-8 via matplotlib (Agg backend). Added matplotlib to requirements.txt.
+- Frontend: ChartViewer.svelte component with collapsible dropdown, lazy-loaded chart images, and per-chart save buttons. Mounted below AnalemmaViewer in +page.svelte.
+
+**Feature 2 -- Click-to-Select Sun Position:**
+- SunPicker.svelte: full-viewport modal overlay, click-to-mark with crosshair, confirm/cancel buttons, Escape to close. Computes actual pixel coords from displayed-to-natural coordinate ratio.
+- MetadataForm.svelte: replaced raw X/Y numeric inputs with a picker-based UI. Shows "Select sun position on image" button, or read-only coords with Clear/Reselect when set. Amber warning banner when auto-detection fails.
+- +page.svelte: added detectionFailed state, error message parsing in generate() to detect sun detection failures, SunPicker mount and confirm/cancel handlers, new props passed to MetadataForm.
+
+**Feature 3 -- Educational Info Pages:**
+- +layout.svelte: added tabbed navigation (App, About, Methodology) with amber active highlight, responsive desktop/mobile layout.
+- about/+page.svelte: explains what an analemma is, why it forms (axial tilt + eccentricity), how it varies by location, and what the app does.
+- methodology/+page.svelte: covers solar position computation (Astropy/DE440), horizon coordinate transform, camera model (tangent-plane projection with cos(alt) correction), CV sun detection pipeline, overlay rendering, and limitations.
+
+**Verification:** svelte-check 0 errors, npm run build clean, Python AST parse OK.
+
 ### Prompt 4 (2026-03-18) -- Fix sample rendering, SVG styling, mobile save
 
 User tested the live app and reported 6 issues. Investigation, planning, and implementation all done in one pass.

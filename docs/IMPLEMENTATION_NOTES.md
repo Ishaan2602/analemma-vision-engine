@@ -4,6 +4,26 @@ Technical details, theory explanations, and answers to implementation questions.
 
 ---
 
+## Session 4 -- continued (2026-03-18): Feature Batch
+
+### Charts endpoint design
+
+The /api/charts endpoint only takes lat/lon/datetime -- no image upload needed. Sky chart and figure-8 are purely astronomical plots generated from the engine's AnalemmaPlotter. matplotlib uses the Agg backend to avoid GUI display issues in Docker. Charts are rendered at 150 DPI to BytesIO buffers, base64-encoded, and returned as JSON. Figures are explicitly closed after encoding to prevent memory leaks in the long-running server process.
+
+### Sun picker coordinate mapping
+
+SunPicker displays the image scaled to fit the viewport (max-h-[70vh] object-contain). When the user clicks, pixel coords are computed as: `(click offset from image edge) / (displayed size) * (natural image dimension)`. This gives coordinates in the original image's pixel space, which is what the backend expects for sun position. The marker position is tracked in both natural (for data) and display (for visual positioning) coordinates.
+
+### Detection failure flow
+
+When /api/analyze returns an error containing "sun" and "detect" (case-insensitive), the app sets `detectionFailed = true` which: (1) shows an amber error banner with guidance, (2) auto-expands the Sun Position section in MetadataForm, (3) shows a warning inside that section. The user can then click "Select sun position on image" to open the SunPicker modal, pick the sun, and retry generation with explicit coordinates.
+
+### Tab navigation with $app/state
+
+SvelteKit 2.50+ exposes `page` from `$app/state` as a Svelte 5 rune (not a store). Used `page.url.pathname` directly in template expressions for active tab highlighting. The mobile nav renders below the header; desktop nav sits inline next to the title.
+
+---
+
 ## Session 4 -- continued (2026-03-18): Rendering Fixes
 
 ### Investigation Summary
