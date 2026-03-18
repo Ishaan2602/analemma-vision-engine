@@ -16,7 +16,6 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from typing import Tuple, Optional, Dict, List
 from datetime import datetime
-import matplotlib.pyplot as plt
 
 from .calculator import AnalemmaCalculator
 from .sky_mapper import SkyMapper
@@ -412,7 +411,7 @@ class ImageAnchorer:
             'sun_azimuth': self.anchor_data['azimuth']
         }
     
-    def create_composite_plot(self, output_path: str) -> plt.Figure:
+    def create_composite_plot(self, output_path: str):
         """
         Create a composite visualization showing image and sky chart.
         
@@ -426,6 +425,8 @@ class ImageAnchorer:
         matplotlib.figure.Figure
             The created figure
         """
+        import matplotlib.pyplot as plt
+
         analemma_points = self.generate_analemma_points()
         
         # Create figure with two subplots

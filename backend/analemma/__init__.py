@@ -7,6 +7,5 @@ the Sun traces in the sky when photographed at the same mean solar time over a y
 
 from .calculator import AnalemmaCalculator
 from .sky_mapper import SkyMapper
-from .plotter import AnalemmaPlotter
 
-__all__ = ['AnalemmaCalculator', 'SkyMapper', 'AnalemmaPlotter']
+__all__ = ['AnalemmaCalculator', 'SkyMapper']
