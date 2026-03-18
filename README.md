@@ -10,7 +10,7 @@ Given a sky photo with basic metadata (GPS coordinates, timestamp, camera specs)
 2. Computes the theoretical analemma curve for that location, time of day, and year
 3. Overlays the curve onto the original photo, anchored at the detected sun position
 
-The analemma shape comes from Earth's 23.45-degree axial tilt combined with its elliptical orbit. The engine handles the orbital mechanics, coordinate transforms, timezone detection, and camera projection math.
+The analemma shape comes from Earth's 23.44-degree axial tilt combined with its elliptical orbit. The engine handles the orbital mechanics, coordinate transforms, timezone detection, and camera projection math.
 
 ![Example Output](output/hongkong_output/hongkong_overlay.png)
 
